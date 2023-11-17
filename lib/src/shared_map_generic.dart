@@ -18,7 +18,7 @@ class SharedStoreGeneric implements SharedStore {
   }
 
   @override
-  SharedStoreReference shareReference() => SharedStoreReference(id);
+  SharedStoreReference sharedReference() => SharedStoreReference(id);
 }
 
 class SharedMapGeneric<K, V> implements SharedMap<K, V> {
@@ -43,8 +43,18 @@ class SharedMapGeneric<K, V> implements SharedMap<K, V> {
   }
 
   @override
-  SharedMapReference shareReference() =>
-      SharedMapReference(id, sharedStore.shareReference());
+  FutureOr<V?> putIfAbsent(K key, V? absentValue) {
+    var prev = _entries[key];
+    if (prev != null) {
+      return _entries[key] = absentValue;
+    } else {
+      return prev;
+    }
+  }
+
+  @override
+  SharedMapReference sharedReference() =>
+      SharedMapReference(id, sharedStore.sharedReference());
 }
 
 SharedStore createSharedStore(
