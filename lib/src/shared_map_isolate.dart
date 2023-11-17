@@ -45,7 +45,7 @@ class SharedStoreIsolateServer extends SharedStoreIsolate {
 
       var sharedMap = _sharedMaps[id];
 
-      clientPort.send([messageID, sharedMap?.shareReference()]);
+      clientPort.send([messageID, sharedMap?.sharedReference()]);
       return;
     }
 
@@ -63,7 +63,7 @@ class SharedStoreIsolateServer extends SharedStoreIsolate {
   }
 
   @override
-  SharedStoreReferenceIsolate shareReference() =>
+  SharedStoreReferenceIsolate sharedReference() =>
       SharedStoreReferenceIsolate(id, _receivePort.sendPort);
 }
 
@@ -112,7 +112,7 @@ class SharedStoreIsolateClient extends SharedStoreIsolate {
   }
 
   @override
-  SharedStoreReferenceIsolate shareReference() =>
+  SharedStoreReferenceIsolate sharedReference() =>
       SharedStoreReferenceIsolate(id, _serverPort);
 }
 
@@ -137,9 +137,18 @@ class SharedMapIsolateServer<K, V> extends SharedMapIsolate<K, V>
       var messageID = m[1] as int;
       var key = m[2];
 
+      final mLength = m.length;
       V? value;
-      if (m.length == 4) {
+
+      if (mLength == 4) {
         value = _entries[key] = m[3];
+      } else if (mLength == 5) {
+        var prev = _entries[key];
+        if (prev == null) {
+          value = _entries[key] = m[3];
+        } else {
+          value = prev;
+        }
       } else {
         value = _entries[key];
       }
@@ -162,8 +171,18 @@ class SharedMapIsolateServer<K, V> extends SharedMapIsolate<K, V>
   }
 
   @override
-  SharedMapReferenceIsolate shareReference() => SharedMapReferenceIsolate(
-      id, sharedStore.shareReference(), _receivePort.sendPort);
+  FutureOr<V?> putIfAbsent(K key, V? absentValue) {
+    var prev = _entries[key];
+    if (prev == null) {
+      return _entries[key] = absentValue;
+    } else {
+      return prev;
+    }
+  }
+
+  @override
+  SharedMapReferenceIsolate sharedReference() => SharedMapReferenceIsolate(
+      id, sharedStore.sharedReference(), _receivePort.sendPort);
 }
 
 class SharedMapIsolateClient<K, V> extends SharedMapIsolate<K, V>
@@ -215,8 +234,18 @@ class SharedMapIsolateClient<K, V> extends SharedMapIsolate<K, V>
   }
 
   @override
-  SharedMapReference shareReference() =>
-      SharedMapReferenceIsolate(id, sharedStore.shareReference(), _serverPort);
+  FutureOr<V?> putIfAbsent(K key, V? absentValue) {
+    var msgID = ++_msgIDCounter;
+    var completer = _waitingResponse[msgID] = Completer();
+
+    _serverPort.send([_receivePort.sendPort, msgID, key, absentValue, true]);
+
+    return completer.future;
+  }
+
+  @override
+  SharedMapReference sharedReference() =>
+      SharedMapReferenceIsolate(id, sharedStore.sharedReference(), _serverPort);
 }
 
 class SharedStoreReferenceIsolate extends SharedStoreReference {

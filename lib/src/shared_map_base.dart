@@ -10,7 +10,7 @@ abstract class SharedType {
 
   /// Returns the [SharedReference] of this instances, to instantiated it
   /// using `fromSharedReference` constructor.
-  SharedReference shareReference();
+  SharedReference sharedReference();
 }
 
 /// Base class for [SharedStore] implementations.
@@ -30,7 +30,7 @@ abstract class SharedStore extends SharedType {
   FutureOr<SharedMap<K, V>?> getSharedMap<K, V>(String id);
 
   @override
-  SharedStoreReference shareReference();
+  SharedStoreReference sharedReference();
 }
 
 /// Base class for [SharedMap] implementations.
@@ -54,8 +54,13 @@ abstract class SharedMap<K, V> extends SharedType {
   /// Sets the [value] of [key] and returns it.
   FutureOr<V?> put(K key, V? value);
 
+  /// Sets the [absentValue] of [key] if it's `null`, and returns it.
+  /// If the [key] value is already define and is NOT `null`,
+  /// returns the previous value.
+  FutureOr<V?> putIfAbsent(K key, V? absentValue);
+
   @override
-  SharedMapReference shareReference();
+  SharedMapReference sharedReference();
 }
 
 /// Base class for [SharedReference] implementations.

@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:io' show exit;
 import 'dart:isolate';
 
 import 'package:shared_map/shared_map.dart';
@@ -9,12 +9,12 @@ void main() async {
   var m1 = await store1.getSharedMap<String, int>('m1');
 
   var va1 = await m1!.get('a'); // return `null`
-  print('va1: $va1');
+  print('get> va1: $va1');
 
   var va2 = m1.put('a', 11); // put and return `11`
-  print('va2: $va2');
+  print('put> va2: $va2');
 
-  final sharedMapReference = m1.shareReference();
+  final sharedMapReference = m1.sharedReference();
   print('sharedMapReference: $sharedMapReference');
 
   // Use the `SharedMap` inside an `Isolate`:
@@ -25,7 +25,7 @@ void main() async {
     return va3;
   }); // Isolate returns 11
 
-  print('va3: $va3');
+  print('Isolate return> va3: $va3');
 
   // Use the `SharedMap` inside another `Isolate`:
   var va4 = await Isolate.run<int?>(() async {
@@ -35,28 +35,57 @@ void main() async {
     return va4;
   }); // Isolate returns 111
 
-  print('va4: $va4');
+  print('Isolate return> va4: $va4');
 
   final sharedMapID = sharedMapReference.id;
   print('sharedMapID: $sharedMapID');
 
-  final shareStoreReference = store1.shareReference();
-  print('shareStoreReference: $shareStoreReference');
+  final sharedStoreReference = store1.sharedReference();
+  print('shareStoreReference: $sharedStoreReference');
 
-  // Use the `SharedStore` inside an `Isolate`:
+  // Use the `SharedStore` inside another `Isolate`:
   var va5 = await Isolate.run<int?>(() async {
     // Instantiate from `shareStoreReference`:
-    var store2 = SharedStore.fromSharedReference(shareStoreReference);
+    var store2 = SharedStore.fromSharedReference(sharedStoreReference);
     // Get the `SharedMap` through the `SharedStore`:
     var m4 = await store2.getSharedMap(sharedMapID);
     var va5 = await m4?.put('a', 222); // put and return `222`
     return va5;
   });
 
-  print('va5: $va5'); // print `222`
+  print('Isolate return> va5: $va5'); // print `222`
 
   var va6 = await m1.get('a');
-  print('va6: $va6'); // print `222`
+  print('get> va6: $va6'); // print `222`
+
+  var va7 = await m1.get('a');
+  print('get> va7: $va7'); // print `222`
+
+  var va8 = await m1.putIfAbsent('a', 1001);
+  print('putIfAbsent> va8: $va8'); // print `1001`
+
+  var va9 = await Isolate.run<int?>(() async {
+    var store4 = SharedStore.fromSharedReference(sharedStoreReference);
+    var m6 = await store4.getSharedMap(sharedMapID);
+    var va9 = await m6?.putIfAbsent('a', 1001);
+    return va9;
+  });
+
+  print('Isolate return> va9: $va9'); // print `222`
+
+  var vb1 = await m1.putIfAbsent('b', 2001);
+  print('putIfAbsent> vb1: $vb1'); // print `2001`
+  print('get> vb1: ${await m1.get('b')}'); // print `2001`
+
+  var vc1 = await Isolate.run<int?>(() async {
+    var store5 = SharedStore.fromSharedReference(sharedStoreReference);
+    var m7 = await store5.getSharedMap(sharedMapID);
+    var va11 = await m7?.putIfAbsent('c', 3001);
+    return va11;
+  });
+
+  print('Isolate return> vc1: $vc1'); // print `3001`
+  print('get> vc1: ${await m1.get('c')}'); // print `3001`
 
   exit(0);
 }
