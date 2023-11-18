@@ -82,6 +82,12 @@ void main() {
 
         expect(identical(cached2, cached1), isTrue);
         expect(await cached2.get('a'), equals(222));
+
+        expect(await cached2.putIfAbsent('a', 5555), equals(222));
+
+        expect(await cached2.put('a', 333), equals(333));
+
+        expect(await cached2.putIfAbsent('a', 6666), equals(333));
       }
     });
   });
