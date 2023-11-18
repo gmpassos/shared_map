@@ -125,8 +125,8 @@ void main() async {
    var vc1 = await Isolate.run<int?>(() async {
       var store5 = SharedStore.fromSharedReference(sharedStoreReference);
       var m7 = await store5.getSharedMap(sharedMapID);
-      var va11 = await m7?.putIfAbsent('c', 3001);
-      return va11;
+      var vc1 = await m7?.putIfAbsent('c', 3001);
+      return vc1;
    });
 
    print('Isolate return> vc1: $vc1'); // print `3001`
@@ -155,6 +155,21 @@ get> vb1: 2001
 Isolate return> vc1: 3001
 get> vc1: 3001
 ```
+
+## How it Works
+
+When operating on a Dart platform with `Isolate`s, the mechanism involves a "server" version of a `SharedStore`
+or `SharedMap` residing in the main `Isolate` responsible for storing data. Simultaneously, auxiliary Isolates host a
+"client" version of these shared instances.
+
+In the auxiliary Isolates, every `get` or `put` action on the `SharedMap` triggers an
+Isolate message to the "server" version, fetching the current value in the `Isolate`.
+
+To optimize performance and
+circumvent unnecessary Isolate requests, consider utilizing the cached version of the `SharedMap` (`SharedMapCache`).
+
+Note that the main `Isolate` is the one that created the `SharedStore` or `SharedMap` instance,
+and the auxiliary `Isolate`s are the one that "gets" an instance from a `sharedReference`.
 
 ## Features and bugs
 

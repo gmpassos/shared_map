@@ -80,8 +80,8 @@ void main() async {
   var vc1 = await Isolate.run<int?>(() async {
     var store5 = SharedStore.fromSharedReference(sharedStoreReference);
     var m7 = await store5.getSharedMap(sharedMapID);
-    var va11 = await m7?.putIfAbsent('c', 3001);
-    return va11;
+    var vc1 = await m7?.putIfAbsent('c', 3001);
+    return vc1;
   });
 
   print('Isolate return> vc1: $vc1'); // print `3001`

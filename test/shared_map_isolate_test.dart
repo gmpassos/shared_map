@@ -1,12 +1,12 @@
 @TestOn('vm')
-@Timeout(Duration(minutes: 20))
+@Timeout(Duration(minutes: 5))
 import 'dart:isolate';
 
 import 'package:shared_map/shared_map.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('SharedMap', () {
+  group('SharedMap (Isolate)', () {
     test('basic', () async {
       var store1 = SharedStore('t1');
 
@@ -49,6 +49,9 @@ void main() {
 
       expect(va5, equals(111));
 
+      var cached1 = m1.cached();
+      expect(await cached1.get('a'), equals(111));
+
       var va6 = await Isolate.run<int?>(() async {
         var store3 = SharedStore.fromSharedReference(sharedStoreReference);
         var m5 = await store3.getSharedMap(sharedMapID);
@@ -57,6 +60,10 @@ void main() {
       });
 
       expect(va6, equals(222));
+
+      expect(await cached1.get('a'), equals(111));
+      expect(await cached1.get('a', refresh: true), equals(222));
+      expect(await cached1.get('a'), equals(222));
 
       var va7 = await m1.get('a');
       expect(va7, equals(222));
@@ -80,12 +87,19 @@ void main() {
       var vc1 = await Isolate.run<int?>(() async {
         var store5 = SharedStore.fromSharedReference(sharedStoreReference);
         var m7 = await store5.getSharedMap(sharedMapID);
-        var va11 = await m7?.putIfAbsent('c', 3001);
-        return va11;
+        var vc1 = await m7?.putIfAbsent('c', 3001);
+        return vc1;
       });
 
       expect(vc1, equals(3001));
       expect(await m1.get('c'), equals(3001));
+
+      {
+        var cached2 = m1.cached();
+
+        expect(identical(cached2, cached1), isTrue);
+        expect(await cached2.get('a'), equals(222));
+      }
     });
   });
 }
