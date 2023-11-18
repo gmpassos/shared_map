@@ -67,7 +67,7 @@ class SharedMapGeneric<K, V> implements SharedMap<K, V> {
 
   @override
   SharedMapCached<K, V> cached({Duration? timeout}) =>
-      _cached ??= SharedMapCached<K, V>(this, timeout: timeout);
+      _cached ??= SharedMapCacheGeneric<K, V>(this, timeout: timeout);
 }
 
 class SharedMapCacheGeneric<K, V> implements SharedMapCached<K, V> {
@@ -105,11 +105,8 @@ class SharedMapCacheGeneric<K, V> implements SharedMapCached<K, V> {
   @override
   SharedMapReference sharedReference() => _sharedMap.sharedReference();
 
-  SharedMapCacheGeneric<K, V>? _cached;
-
   @override
-  SharedMapCached<K, V> cached({Duration? timeout}) =>
-      _cached ??= SharedMapCacheGeneric(this, timeout: timeout);
+  SharedMapCached<K, V> cached({Duration? timeout}) => this;
 
   @override
   String toString() =>
