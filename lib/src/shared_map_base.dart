@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'shared_map_cached.dart';
 import 'shared_map_generic.dart'
     if (dart.library.isolate) 'shared_map_isolate.dart';
 
@@ -61,6 +62,8 @@ abstract class SharedMap<K, V> extends SharedType {
 
   @override
   SharedMapReference sharedReference();
+
+  SharedMapCached<K, V> cached({Duration? timeout});
 }
 
 /// Base class for [SharedReference] implementations.
@@ -75,11 +78,11 @@ abstract class SharedReference {
 }
 
 /// Shared reference to a [SharedStore].
-class SharedStoreReference extends SharedReference {
+abstract class SharedStoreReference extends SharedReference {
   SharedStoreReference(super.id);
 
   factory SharedStoreReference.fromJson(Map<String, dynamic> json) {
-    return SharedStoreReference(json['id']);
+    return createSharedStoreReference(json: json);
   }
 
   @override
@@ -90,16 +93,14 @@ class SharedStoreReference extends SharedReference {
 }
 
 /// Shared reference to a [SharedMap].
-class SharedMapReference extends SharedReference {
+abstract class SharedMapReference extends SharedReference {
   /// The [SharedStoreReference] of the [SharedStore] of the referenced [SharedMap].
   final SharedStoreReference sharedStoreReference;
 
   SharedMapReference(super.id, this.sharedStoreReference);
 
   factory SharedMapReference.fromJson(Map<String, dynamic> json) {
-    var sharedStoreReference =
-        SharedStoreReference.fromJson(json['sharedStore']);
-    return SharedMapReference(json['id'], sharedStoreReference);
+    return createSharedMapReference(json: json);
   }
 
   @override
