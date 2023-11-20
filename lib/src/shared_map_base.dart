@@ -139,3 +139,87 @@ abstract class SharedMapReference extends SharedReference {
   @override
   String toString() => 'SharedMapReference${toJson()}';
 }
+
+/// A [SharedStore] field/wrapper. This will handle the [SharedStore] in.
+class SharedStoreField {
+  static final Map<String, WeakReference<SharedStoreField>> _instances = {};
+
+  static SharedStoreField? _getInstanceByID(String id) {
+    var ref = _instances[id];
+
+    if (ref != null) {
+      var prev = ref.target;
+      if (prev != null) {
+        return prev;
+      } else {
+        _instances.remove(id);
+      }
+    }
+
+    return null;
+  }
+
+  /// The global ID of the [sharedStore].
+  String sharedStoreID;
+
+  SharedStoreField(this.sharedStoreID) {
+    _setupInstance(fromConstructor: true);
+  }
+
+  bool _isolateCopy = false;
+
+  /// Returns `true` if this instance is a copy passed to another `Isolate` (usually an [APIServerWorker]).
+  bool get isIsolateCopy => _isolateCopy;
+
+  static final Expando<SharedStore> _sharedStoreExpando = Expando();
+
+  /// The [SharedStore] of this instance. This [SharedStore] will be
+  /// automatically shared among `Isolate` copies.
+  ///
+  /// See [isIsolateCopy].
+  SharedStore get sharedStore {
+    _setupInstance();
+
+    var sharedStored = _sharedStoreExpando[this];
+    if (sharedStored != null) return sharedStored;
+
+    var sharedStoreReference = _sharedStoreReference;
+    if (sharedStoreReference != null) {
+      _sharedStoreExpando[this] =
+          sharedStored = SharedStore.fromSharedReference(sharedStoreReference);
+      return sharedStored;
+    }
+
+    _sharedStoreExpando[this] = sharedStored = SharedStore(sharedStoreID);
+    _sharedStoreReference = sharedStored.sharedReference();
+
+    return sharedStored;
+  }
+
+  SharedStoreReference? _sharedStoreReference;
+
+  void _setupInstance({bool fromConstructor = false}) {
+    final sharedStoreID = this.sharedStoreID;
+
+    var prev = _getInstanceByID(sharedStoreID);
+    if (identical(prev, this)) {
+      return;
+    }
+
+    if (!fromConstructor) {
+      _isolateCopy = true;
+
+      var sharedStoreReference = _sharedStoreReference;
+      if (sharedStoreReference != null) {
+        _sharedStoreExpando[this] =
+            SharedStore.fromSharedReference(sharedStoreReference);
+      }
+    } else {
+      var sharedStore =
+          _sharedStoreExpando[this] ??= SharedStore(sharedStoreID);
+      _sharedStoreReference = sharedStore.sharedReference();
+    }
+
+    _instances[sharedStoreID] = WeakReference(this);
+  }
+}

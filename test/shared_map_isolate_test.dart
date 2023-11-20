@@ -137,4 +137,42 @@ void main() {
       expect(await m1.length(), equals(1));
     });
   });
+
+  group('SharedStoreField', () {
+    final sharedStoreID = 'SharedMap:test[field]';
+    final sharedMapID = 'SharedMap:test[field]';
+
+    final SharedStoreField sharedStoreField = SharedStoreField(sharedStoreID);
+
+    test('basic', () async {
+      final store1 = sharedStoreField.sharedStore;
+
+      var m1 = await store1.getSharedMap(sharedMapID);
+
+      var va1 = await m1!.get('a');
+      expect(va1, isNull);
+
+      var va2 = await m1.put('a', 11);
+      expect(va2, equals(11));
+
+      var va3 = await Isolate.run<int?>(() async {
+        final store2 = sharedStoreField.sharedStore;
+        var m2 = await store2.getSharedMap(sharedMapID);
+        var va3 = await m2?.putIfAbsent('a', 1001);
+        return va3;
+      });
+
+      expect(va3, equals(11));
+
+      var va4 = await Isolate.run<int?>(() async {
+        final store3 = sharedStoreField.sharedStore;
+        var m3 = await store3.getSharedMap(sharedMapID);
+        var va4 = await m3?.put('a', 111);
+        return va4;
+      });
+
+      expect(va4, equals(111));
+      expect(await m1.get('a'), equals(111));
+    });
+  });
 }
