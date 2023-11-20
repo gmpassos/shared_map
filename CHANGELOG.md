@@ -1,3 +1,8 @@
+## 1.0.4
+
+- `SharedMap`:
+  - Added `keys`, `length`, `remove` and `removeAll`.
+
 ## 1.0.3
 
 - New `SharedMapCached`.

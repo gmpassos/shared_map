@@ -40,17 +40,17 @@ class SharedMapGeneric<K, V> implements SharedMap<K, V> {
   SharedMapGeneric(this.sharedStore, this.id) : _entries = {};
 
   @override
-  FutureOr<V?> get(K key) {
+  V? get(K key) {
     return _entries[key];
   }
 
   @override
-  FutureOr<V?> put(K key, V? value) {
+  V? put(K key, V? value) {
     return _entries[key] = value;
   }
 
   @override
-  FutureOr<V?> putIfAbsent(K key, V? absentValue) {
+  V? putIfAbsent(K key, V? absentValue) {
     var prev = _entries[key];
     if (prev == null) {
       return _entries[key] = absentValue;
@@ -58,6 +58,21 @@ class SharedMapGeneric<K, V> implements SharedMap<K, V> {
       return prev;
     }
   }
+
+  @override
+  V? remove(K key) => _entries.remove(key);
+
+  @override
+  List<V?> removeAll(List<K> keys) {
+    var values = keys.map((k) => _entries.remove(k)).toList();
+    return values;
+  }
+
+  @override
+  List<K> keys() => _entries.keys.toList();
+
+  @override
+  int length() => _entries.length;
 
   @override
   SharedMapReference sharedReference() =>
@@ -71,7 +86,7 @@ class SharedMapGeneric<K, V> implements SharedMap<K, V> {
 }
 
 class SharedMapCacheGeneric<K, V> implements SharedMapCached<K, V> {
-  final SharedMap<K, V> _sharedMap;
+  final SharedMapGeneric<K, V> _sharedMap;
   @override
   final Duration timeout;
 
@@ -92,18 +107,30 @@ class SharedMapCacheGeneric<K, V> implements SharedMapCached<K, V> {
   void clearCache() {}
 
   @override
-  FutureOr<V?> get(K key, {Duration? timeout, bool refresh = false}) =>
+  V? get(K key, {Duration? timeout, bool refresh = false}) =>
       _sharedMap.get(key);
 
   @override
-  FutureOr<V?> put(K key, V? value) => _sharedMap.put(key, value);
+  V? put(K key, V? value) => _sharedMap.put(key, value);
 
   @override
-  FutureOr<V?> putIfAbsent(K key, V? absentValue) =>
+  V? putIfAbsent(K key, V? absentValue) =>
       _sharedMap.putIfAbsent(key, absentValue);
 
   @override
+  V? remove(K key) => _sharedMap.remove(key);
+
+  @override
+  List<V?> removeAll(List<K> keys) => _sharedMap.removeAll(keys);
+
+  @override
   SharedMapReference sharedReference() => _sharedMap.sharedReference();
+
+  @override
+  List<K> keys({Duration? timeout, bool refresh = false}) => _sharedMap.keys();
+
+  @override
+  int length({Duration? timeout, bool refresh = false}) => _sharedMap.length();
 
   @override
   SharedMapCached<K, V> cached({Duration? timeout}) => this;

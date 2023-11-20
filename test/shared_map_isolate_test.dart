@@ -84,6 +84,9 @@ void main() {
       expect(vb1, equals(2001));
       expect(await m1.get('b'), equals(2001));
 
+      expect(await m1.keys(), equals(['a', 'b']));
+      expect(await m1.length(), equals(2));
+
       var vc1 = await Isolate.run<int?>(() async {
         var store5 = SharedStore.fromSharedReference(sharedStoreReference);
         var m7 = await store5.getSharedMap(sharedMapID);
@@ -99,7 +102,39 @@ void main() {
 
         expect(identical(cached2, cached1), isTrue);
         expect(await cached2.get('a'), equals(222));
+
+        expect(await cached2.putIfAbsent('a', 5555), equals(222));
+
+        expect(await cached2.put('a', 333), equals(333));
+
+        expect(await cached2.putIfAbsent('a', 6666), equals(333));
       }
+
+      expect(await m1.get('a'), equals(333));
+
+      expect(await m1.keys(), equals(['a', 'b', 'c']));
+      expect(await m1.length(), equals(3));
+
+      {
+        var cached3 = m1.cached();
+
+        expect(identical(cached3, cached1), isTrue);
+        expect(await cached3.get('a'), equals(333));
+
+        expect(await cached3.remove('a'), equals(333));
+
+        expect(await cached3.get('a'), isNull);
+      }
+
+      expect(await m1.get('a'), isNull);
+
+      expect(await m1.keys(), equals(['b', 'c']));
+      expect(await m1.length(), equals(2));
+
+      expect(await m1.removeAll(['b', 'x']), equals([2001, null]));
+
+      expect(await m1.keys(), equals(['c']));
+      expect(await m1.length(), equals(1));
     });
   });
 }

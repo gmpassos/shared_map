@@ -149,27 +149,58 @@ class SharedMapIsolateServer<K, V> extends SharedMapIsolate<K, V>
   @override
   void _onReceiveMessage(m) {
     if (m is List) {
-      var clientPort = m[0] as SendPort;
-      var messageID = m[1] as int;
-      var key = m[2];
+      var op = m[0] as SharedMapOperation;
+      var clientPort = m[1] as SendPort;
+      var messageID = m[2] as int;
 
-      final mLength = m.length;
-      V? value;
+      Object? response;
 
-      if (mLength == 4) {
-        value = _entries[key] = m[3];
-      } else if (mLength == 5) {
-        var prev = _entries[key];
-        if (prev == null) {
-          value = _entries[key] = m[3];
-        } else {
-          value = prev;
-        }
-      } else {
-        value = _entries[key];
+      switch (op) {
+        case SharedMapOperation.get:
+          {
+            var key = m[3];
+            response = _entries[key];
+          }
+        case SharedMapOperation.put:
+          {
+            var key = m[3];
+            var putValue = m[4];
+            response = _entries[key] = putValue;
+          }
+        case SharedMapOperation.putIfAbsent:
+          {
+            var key = m[3];
+            var putValue = m[4];
+
+            var prev = _entries[key];
+            if (prev == null) {
+              response = _entries[key] = putValue;
+            } else {
+              response = prev;
+            }
+          }
+        case SharedMapOperation.remove:
+          {
+            var key = m[3];
+            response = _entries.remove(key);
+          }
+        case SharedMapOperation.removeAll:
+          {
+            var keys = m[3] as List;
+            var values = keys.map((k) => _entries.remove(k)).toList();
+            response = values;
+          }
+        case SharedMapOperation.keys:
+          {
+            response = _entries.keys.toList();
+          }
+        case SharedMapOperation.length:
+          {
+            response = _entries.length;
+          }
       }
 
-      clientPort.send([messageID, value]);
+      clientPort.send([messageID, response]);
       return;
     }
 
@@ -177,17 +208,13 @@ class SharedMapIsolateServer<K, V> extends SharedMapIsolate<K, V>
   }
 
   @override
-  FutureOr<V?> get(K key) {
-    return _entries[key];
-  }
+  V? get(K key) => _entries[key];
 
   @override
-  FutureOr<V?> put(K key, V? value) {
-    return _entries[key] = value;
-  }
+  V? put(K key, V? value) => _entries[key] = value;
 
   @override
-  FutureOr<V?> putIfAbsent(K key, V? absentValue) {
+  V? putIfAbsent(K key, V? absentValue) {
     var prev = _entries[key];
     if (prev == null) {
       return _entries[key] = absentValue;
@@ -195,6 +222,19 @@ class SharedMapIsolateServer<K, V> extends SharedMapIsolate<K, V>
       return prev;
     }
   }
+
+  @override
+  V? remove(K key) => _entries.remove(key);
+
+  @override
+  List<V?> removeAll(List<K> keys) =>
+      keys.map((k) => _entries.remove(k)).toList();
+
+  @override
+  List<K> keys() => _entries.keys.toList();
+
+  @override
+  int length() => _entries.length;
 
   @override
   SharedMapReferenceIsolate sharedReference() => SharedMapReferenceIsolate(
@@ -213,18 +253,18 @@ class SharedMapIsolateClient<K, V> extends SharedMapIsolate<K, V>
 
   int _msgIDCounter = 0;
 
-  final Map<int, Completer<V?>> _waitingResponse = {};
+  final Map<int, Completer> _waitingResponse = {};
 
   @override
   void _onReceiveMessage(m) {
     if (m is List) {
       var messageID = m[0] as int;
-      var value = m[1];
+      var response = m[1];
 
       var completer = _waitingResponse.remove(messageID);
 
       if (completer != null && !completer.isCompleted) {
-        completer.complete(value);
+        completer.complete(response);
       }
 
       return;
@@ -236,29 +276,79 @@ class SharedMapIsolateClient<K, V> extends SharedMapIsolate<K, V>
   @override
   Future<V?> get(K key) async {
     var msgID = ++_msgIDCounter;
-    var completer = _waitingResponse[msgID] = Completer();
+    var completer = _waitingResponse[msgID] = Completer<V?>();
 
-    _serverPort.send([_receivePort.sendPort, msgID, key]);
-
-    return completer.future;
-  }
-
-  @override
-  FutureOr<V?> put(K key, V? value) {
-    var msgID = ++_msgIDCounter;
-    var completer = _waitingResponse[msgID] = Completer();
-
-    _serverPort.send([_receivePort.sendPort, msgID, key, value]);
+    _serverPort
+        .send([SharedMapOperation.get, _receivePort.sendPort, msgID, key]);
 
     return completer.future;
   }
 
   @override
-  FutureOr<V?> putIfAbsent(K key, V? absentValue) {
+  Future<V?> put(K key, V? value) {
     var msgID = ++_msgIDCounter;
-    var completer = _waitingResponse[msgID] = Completer();
+    var completer = _waitingResponse[msgID] = Completer<V?>();
 
-    _serverPort.send([_receivePort.sendPort, msgID, key, absentValue, true]);
+    _serverPort.send(
+        [SharedMapOperation.put, _receivePort.sendPort, msgID, key, value]);
+
+    return completer.future;
+  }
+
+  @override
+  Future<V?> putIfAbsent(K key, V? absentValue) {
+    var msgID = ++_msgIDCounter;
+    var completer = _waitingResponse[msgID] = Completer<V?>();
+
+    _serverPort.send([
+      SharedMapOperation.putIfAbsent,
+      _receivePort.sendPort,
+      msgID,
+      key,
+      absentValue
+    ]);
+
+    return completer.future;
+  }
+
+  @override
+  FutureOr<V?> remove(K key) {
+    var msgID = ++_msgIDCounter;
+    var completer = _waitingResponse[msgID] = Completer<V?>();
+
+    _serverPort
+        .send([SharedMapOperation.remove, _receivePort.sendPort, msgID, key]);
+
+    return completer.future;
+  }
+
+  @override
+  FutureOr<List<V?>> removeAll(List<K> keys) {
+    var msgID = ++_msgIDCounter;
+    var completer = _waitingResponse[msgID] = Completer<List<V?>>();
+
+    _serverPort.send(
+        [SharedMapOperation.removeAll, _receivePort.sendPort, msgID, keys]);
+
+    return completer.future;
+  }
+
+  @override
+  FutureOr<List<K>> keys() {
+    var msgID = ++_msgIDCounter;
+    var completer = _waitingResponse[msgID] = Completer<List<K>>();
+
+    _serverPort.send([SharedMapOperation.keys, _receivePort.sendPort, msgID]);
+
+    return completer.future;
+  }
+
+  @override
+  FutureOr<int> length() {
+    var msgID = ++_msgIDCounter;
+    var completer = _waitingResponse[msgID] = Completer<int>();
+
+    _serverPort.send([SharedMapOperation.length, _receivePort.sendPort, msgID]);
 
     return completer.future;
   }

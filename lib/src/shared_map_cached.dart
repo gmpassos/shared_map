@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:shared_map/src/shared_map_base.dart';
+import 'shared_map_base.dart';
 
 /// Cached version of a [SharedMap].
 class SharedMapCached<K, V> implements SharedMap<K, V> {
@@ -75,6 +75,95 @@ class SharedMapCached<K, V> implements SharedMap<K, V> {
   FutureOr<V?> putIfAbsent(K key, V? absentValue) {
     var val = _sharedMap.putIfAbsent(key, absentValue);
     return _cacheValue(key, val, DateTime.now());
+  }
+
+  @override
+  FutureOr<V?> remove(K key) {
+    _cache.remove(key);
+    return _sharedMap.remove(key);
+  }
+
+  @override
+  FutureOr<List<V?>> removeAll(List<K> keys) {
+    for (var k in keys) {
+      _cache.remove(k);
+    }
+
+    return _sharedMap.removeAll(keys);
+  }
+
+  (DateTime, List<K>)? _keysCached;
+
+  @override
+  FutureOr<List<K>> keys({Duration? timeout, bool refresh = false}) {
+    var now = DateTime.now();
+
+    if (refresh) {
+      var keys = _sharedMap.keys();
+      return _cacheKeys(keys, now);
+    }
+
+    var keysCached = _keysCached;
+    if (keysCached != null) {
+      timeout ??= this.timeout;
+
+      var elapsedTime = now.difference(keysCached.$1);
+      if (elapsedTime <= timeout) {
+        return keysCached.$2;
+      }
+    }
+
+    var keys = _sharedMap.keys();
+    return _cacheKeys(keys, now);
+  }
+
+  FutureOr<List<K>> _cacheKeys(FutureOr<List<K>> keys, DateTime now) {
+    if (keys is Future<List<K>>) {
+      return keys.then((keys) {
+        _keysCached = (now, keys);
+        return keys;
+      });
+    } else {
+      _keysCached = (now, keys);
+      return keys;
+    }
+  }
+
+  (DateTime, int)? _keysLengthCached;
+
+  @override
+  FutureOr<int> length({Duration? timeout, bool refresh = false}) {
+    var now = DateTime.now();
+
+    if (refresh) {
+      var length = _sharedMap.length();
+      return _cacheKeysLength(length, now);
+    }
+
+    var keysLengthCached = _keysLengthCached;
+    if (keysLengthCached != null) {
+      timeout ??= this.timeout;
+
+      var elapsedTime = now.difference(keysLengthCached.$1);
+      if (elapsedTime <= timeout) {
+        return keysLengthCached.$2;
+      }
+    }
+
+    var length = _sharedMap.length();
+    return _cacheKeysLength(length, now);
+  }
+
+  FutureOr<int> _cacheKeysLength(FutureOr<int> length, DateTime now) {
+    if (length is Future<int>) {
+      return length.then((length) {
+        _keysLengthCached = (now, length);
+        return length;
+      });
+    } else {
+      _keysLengthCached = (now, length);
+      return length;
+    }
   }
 
   @override

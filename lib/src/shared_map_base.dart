@@ -14,6 +14,8 @@ abstract class SharedType {
   SharedReference sharedReference();
 }
 
+typedef SharedStoreProvider = FutureOr<SharedStore?> Function(String id);
+
 /// Base class for [SharedStore] implementations.
 abstract class SharedStore extends SharedType {
   /// Creates a [SharedStore] with [id].
@@ -32,6 +34,19 @@ abstract class SharedStore extends SharedType {
 
   @override
   SharedStoreReference sharedReference();
+}
+
+/// The operations that a [SharedMap] performs.
+///
+/// Used by the `Isolate` implementation of [SharedMap].
+enum SharedMapOperation {
+  get,
+  put,
+  putIfAbsent,
+  remove,
+  removeAll,
+  keys,
+  length,
 }
 
 /// Base class for [SharedMap] implementations.
@@ -59,6 +74,18 @@ abstract class SharedMap<K, V> extends SharedType {
   /// If the [key] value is already define and is NOT `null`,
   /// returns the previous value.
   FutureOr<V?> putIfAbsent(K key, V? absentValue);
+
+  /// Remove the [key] entry and return the removed value.
+  FutureOr<V?> remove(K key);
+
+  /// Remove the [keys] entries and return the removed values.
+  FutureOr<List<V?>> removeAll(List<K> keys);
+
+  /// Returns all the keys.
+  FutureOr<List<K>> keys();
+
+  /// Returns [keys] length.
+  FutureOr<int> length();
 
   @override
   SharedMapReference sharedReference();
