@@ -168,7 +168,7 @@ class SharedStoreField {
 
   bool _isolateCopy = false;
 
-  /// Returns `true` if this instance is a copy passed to another `Isolate` (usually an [APIServerWorker]).
+  /// Returns `true` if this instance is a copy passed to another `Isolate`.
   bool get isIsolateCopy => _isolateCopy;
 
   static final Expando<SharedStore> _sharedStoreExpando = Expando();
