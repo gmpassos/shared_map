@@ -28,16 +28,16 @@ class SharedStoreGeneric implements SharedStore {
       'SharedStoreGeneric[$id]{sharedMaps: ${_sharedMaps.length}}';
 }
 
-class SharedMapGeneric<K, V> implements SharedMap<K, V> {
+class SharedMapGeneric<K, V> implements SharedMapSync<K, V> {
   @override
   final SharedStore sharedStore;
 
   @override
   final String id;
 
-  final Map<K, V?> _entries;
+  final Map<K, V?> _entries = {};
 
-  SharedMapGeneric(this.sharedStore, this.id) : _entries = {};
+  SharedMapGeneric(this.sharedStore, this.id);
 
   @override
   V? get(K key) {
@@ -78,21 +78,19 @@ class SharedMapGeneric<K, V> implements SharedMap<K, V> {
   SharedMapReference sharedReference() =>
       SharedMapReferenceGeneric(id, sharedStore.sharedReference());
 
-  SharedMapCached<K, V>? _cached;
+  late final SharedMapCached<K, V> _cached = SharedMapCacheGeneric<K, V>(this);
 
   @override
-  SharedMapCached<K, V> cached({Duration? timeout}) =>
-      _cached ??= SharedMapCacheGeneric<K, V>(this, timeout: timeout);
+  SharedMapCached<K, V> cached({Duration? timeout}) => _cached;
 }
 
+/// A fake implementation (not cached) of [SharedMapCached].
 class SharedMapCacheGeneric<K, V> implements SharedMapCached<K, V> {
-  final SharedMapGeneric<K, V> _sharedMap;
+  final SharedMapSync<K, V> _sharedMap;
   @override
   final Duration timeout;
 
-  SharedMapCacheGeneric(this._sharedMap,
-      {Duration? timeout = const Duration(seconds: 1)})
-      : timeout = const Duration(seconds: 1);
+  SharedMapCacheGeneric(this._sharedMap) : timeout = Duration.zero;
 
   @override
   String get id => _sharedMap.id;

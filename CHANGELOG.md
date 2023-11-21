@@ -1,3 +1,14 @@
+## 1.0.6
+
+- New `NotSharedMap`, `NotSharedStore` and `SharedMapSync`.
+
+- Refactored `SharedMapField` and `SharedStoreField`:
+  - Handle non-shared and shared instances appropriately.
+  - Improved handling of isolate copies and shared references for better consistency across isolates.
+ 
+- `SharedMap`:
+  - Improved resolution and caching mechanisms to enhance performance and reduce redundant operations.
+
 ## 1.0.5
 
 - New `SharedStoreField`.

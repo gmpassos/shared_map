@@ -52,16 +52,64 @@ void main() {
       var cached1 = m1.cached();
       expect(await cached1.get('a'), equals(111));
 
-      var va6 = await Isolate.run<int?>(() async {
-        var store3 = SharedStore.fromSharedReference(sharedStoreReference);
-        var m5 = await store3.getSharedMap(sharedMapID);
-        var va6 = await m5?.put('a', 222);
-        return va6;
-      });
+      {
+        var mainPort = ReceivePort();
+        var sendPort = mainPort.sendPort;
 
-      expect(va6, equals(222));
+        var vaAsync = Isolate.run<int?>(() async {
+          var isolatePort = ReceivePort();
 
-      expect(await cached1.get('a'), equals(111));
+          var store3 = SharedStore.fromSharedReference(sharedStoreReference);
+          var m5 = await store3.getSharedMap(sharedMapID);
+
+          var va6 = await m5!.get('a');
+          if (va6 != 111) throw StateError("expect: 111 ; got: $va6");
+
+          var cached = m5.cached(timeout: Duration(seconds: 5));
+          var vaCached1 = await cached.get('a');
+          if (vaCached1 != 111) {
+            throw StateError("expect: 111 ; got: $vaCached1");
+          }
+
+          sendPort.send(isolatePort.sendPort);
+          bool resume = await isolatePort.first;
+          assert(resume);
+
+          va6 = await m5.get('a');
+          if (va6 != 1111) throw StateError("expect: 1111 ; got: $va6");
+
+          var vaCached2 = await cached.get('a');
+          if (vaCached2 != 111) {
+            throw StateError("expect: 111 ; got: $vaCached2");
+          }
+
+          var vaCached3 = await cached.get('a', refresh: true);
+          if (vaCached3 != 1111) {
+            throw StateError("expect: 1111 ; got: $vaCached2");
+          }
+
+          return va6;
+        });
+
+        SendPort isolateSendPort = await mainPort.first;
+
+        m1.put('a', 1111);
+
+        isolateSendPort.send(true);
+
+        expect(await vaAsync, equals(1111));
+
+        var va6 = await Isolate.run<int?>(() async {
+          var store3 = SharedStore.fromSharedReference(sharedStoreReference);
+          var m5 = await store3.getSharedMap(sharedMapID);
+          var va6 = await m5?.put('a', 222);
+          return va6;
+        });
+
+        expect(va6, equals(222));
+      }
+
+      expect(await cached1.get('a'), equals(222));
       expect(await cached1.get('a', refresh: true), equals(222));
       expect(await cached1.get('a'), equals(222));
 

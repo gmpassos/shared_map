@@ -119,5 +119,22 @@ void main() {
       expect(await m1.keys(), equals(['c']));
       expect(await m1.length(), equals(1));
     });
+
+    test('newUUID', () async {
+      var store1 = SharedStoreGeneric(SharedType.newUUID());
+
+      expect(store1.id, startsWith('UUID-'));
+
+      var m1 = await store1.getSharedMap<String, int>(SharedType.newUUID());
+      expect(m1, isNotNull);
+      expect(m1, isA<SharedMapGeneric<String, int>>());
+      expect(m1!.id, startsWith('UUID-'));
+
+      var va1 = await m1.get('a');
+      expect(va1, isNull);
+
+      var va2 = m1.put('a', 11);
+      expect(va2, equals(11));
+    });
   });
 }
