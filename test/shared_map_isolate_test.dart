@@ -195,7 +195,7 @@ void main() {
     test('basic', () async {
       final store1 = sharedStoreField.sharedStore;
 
-      var m1 = await store1.getSharedMap(sharedMapID);
+      var m1 = await store1.getSharedMap<String, int>(sharedMapID);
 
       var va1 = await m1!.get('a');
       expect(va1, isNull);
@@ -221,6 +221,37 @@ void main() {
 
       expect(va4, equals(111));
       expect(await m1.get('a'), equals(111));
+
+      var sharedMapField = SharedMapField.fromSharedMap(m1);
+
+      {
+        var sharedMapField2 = SharedMapField(m1.id, sharedStore: store1);
+        expect(identical(sharedMapField2.sharedMapSync, m1), isTrue);
+      }
+
+      {
+        expect(sharedMapField.trySharedMapSync?.id, equals(m1.id));
+
+        var m2 = sharedMapField.sharedMapSync;
+        expect(m2.id, equals(m1.id));
+
+        expect(identical(m2, m1), isTrue);
+      }
+
+      var va5 = await Isolate.run<int?>(() async {
+        var m3 = await sharedMapField.sharedMap;
+
+        var va5 = await m3.get('a');
+        if (va5 != 111) throw StateError("Expected: 111 ; got: $va5");
+
+        va5 = await m3.put('a', 11111);
+        if (va5 != 11111) throw StateError("Expected: 11111 ; got: $va5");
+
+        return va5;
+      });
+
+      expect(va5, equals(11111));
+      expect(await m1.get('a'), equals(11111));
     });
   });
 }
