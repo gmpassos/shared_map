@@ -169,6 +169,12 @@ class SharedMapCached<K, V> implements SharedMap<K, V> {
   }
 
   @override
+  FutureOr<int> clear() {
+    _cache.clear();
+    return _sharedMap.clear();
+  }
+
+  @override
   SharedMapReference sharedReference() => _sharedMap.sharedReference();
 
   @override

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:shared_map/shared_map.dart';
 import 'package:shared_map/src/shared_map_generic.dart';
 import 'package:test/test.dart';
@@ -81,30 +83,54 @@ void main() {
       }
 
       {
-        var cached2 = m1.cached();
+        var cached2 = await _asFuture(m1).cached();
 
         expect(identical(cached2, cached1), isTrue);
         expect(await cached2.get('a'), equals(222));
 
+        expect(await _asFuture(cached2).get('a'), equals(222));
+        expect(await _asFutureOr(cached2).get('a'), equals(222));
+
         expect(await cached2.putIfAbsent('a', 5555), equals(222));
 
-        expect(await cached2.put('a', 333), equals(333));
+        expect(await _asFuture(cached2).putIfAbsent('a', 5555), equals(222));
+        expect(await _asFutureOr(cached2).putIfAbsent('a', 5555), equals(222));
+
+        expect(await cached2.put('a', 331), equals(331));
+        expect(await cached2.get('a'), equals(331));
+
+        expect(await _asFuture(cached2).put('a', 332), equals(332));
+        expect(await cached2.get('a'), equals(332));
+
+        expect(await _asFutureOr(cached2).put('a', 333), equals(333));
 
         expect(await cached2.putIfAbsent('a', 6666), equals(333));
       }
 
       expect(await m1.get('a'), equals(333));
 
+      expect(await _asFuture(m1).get('a'), equals(333));
+      expect(await _asFutureOr(m1).get('a'), equals(333));
+
       expect(await m1.keys(), equals(['a', 'b', 'c']));
       expect(await m1.length(), equals(3));
 
+      expect(await _asFuture(m1).keys(), equals(['a', 'b', 'c']));
+      expect(await _asFuture(m1).length(), equals(3));
+
+      expect(await _asFutureOr(m1).keys(), equals(['a', 'b', 'c']));
+      expect(await _asFutureOr(m1).length(), equals(3));
+
       {
-        var cached3 = m1.cached();
+        var cached3 = await _asFutureOr(m1).cached();
 
         expect(identical(cached3, cached1), isTrue);
         expect(await cached3.get('a'), equals(333));
 
         expect(await cached3.remove('a'), equals(333));
+
+        expect(await _asFuture(cached3).remove('a'), isNull);
+        expect(await _asFutureOr(cached3).remove('a'), isNull);
 
         expect(await cached3.get('a'), isNull);
       }
@@ -115,9 +141,16 @@ void main() {
       expect(await m1.length(), equals(2));
 
       expect(await m1.removeAll(['b', 'x']), equals([2001, null]));
+      expect(await _asFuture(m1).removeAll(['b', 'x']), equals([null, null]));
+      expect(await _asFutureOr(m1).removeAll(['b', 'x']), equals([null, null]));
 
       expect(await m1.keys(), equals(['c']));
-      expect(await m1.length(), equals(1));
+      expect(await _asFuture(m1).length(), equals(1));
+
+      expect(await _asFuture(m1).clear(), equals(1));
+      expect(await m1.length(), equals(0));
+
+      expect(await _asFutureOr(m1).clear(), equals(0));
     });
 
     test('newUUID', () async {
@@ -138,3 +171,7 @@ void main() {
     });
   });
 }
+
+FutureOr<T> _asFuture<T>(T o) => Future<T>.value(o);
+
+FutureOr<T> _asFutureOr<T>(T o) => o;

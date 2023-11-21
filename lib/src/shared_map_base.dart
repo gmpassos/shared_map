@@ -84,6 +84,7 @@ enum SharedMapOperation {
   removeAll,
   keys,
   length,
+  clear,
 }
 
 /// Base class for [SharedMap] implementations.
@@ -132,6 +133,9 @@ abstract class SharedMap<K, V> extends SharedType {
   /// Returns [keys] length.
   FutureOr<int> length();
 
+  /// Clears all the entries and returns the amount of removed entries.
+  FutureOr<int> clear();
+
   @override
   SharedMapReference sharedReference();
 
@@ -161,6 +165,9 @@ abstract class SharedMapSync<K, V> implements SharedMap<K, V> {
 
   @override
   int length();
+
+  @override
+  int clear();
 
   @override
   SharedMapReference sharedReference();

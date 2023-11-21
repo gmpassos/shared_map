@@ -78,6 +78,13 @@ class NotSharedMap<K, V> implements SharedMapSync<K, V> {
     return values;
   }
 
+  @override
+  int clear() {
+    var lng = _entries.length;
+    _entries.clear();
+    return lng;
+  }
+
   NotSharedMapReference? _sharedReference;
 
   @override
@@ -142,6 +149,9 @@ class _NotSharedMapCache<K, V> implements SharedMapCached<K, V> {
 
   @override
   int length({Duration? timeout, bool refresh = false}) => _sharedMap.length();
+
+  @override
+  int clear() => _sharedMap.clear();
 
   @override
   SharedMapCached<K, V> cached({Duration? timeout}) => this;

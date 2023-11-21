@@ -1,3 +1,9 @@
+## 1.0.7
+
+- `SharedMap`:
+  - Added `clear`.
+- New `FutureSharedMapExtension` and `FutureOrSharedMapExtension`.
+
 ## 1.0.6
 
 - New `NotSharedMap`, `NotSharedStore` and `SharedMapSync`.
