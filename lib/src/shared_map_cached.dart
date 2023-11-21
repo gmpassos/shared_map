@@ -9,9 +9,11 @@ class SharedMapCached<K, V> implements SharedMap<K, V> {
   /// The default timeout of the cached entries.
   final Duration timeout;
 
-  SharedMapCached(this._sharedMap,
-      {Duration? timeout = const Duration(seconds: 1)})
-      : timeout = const Duration(seconds: 1);
+  /// The default cache timeout (1 sec).
+  static const defaultTimeout = Duration(seconds: 1);
+
+  SharedMapCached(this._sharedMap, {Duration? timeout = defaultTimeout})
+      : timeout = timeout ??= defaultTimeout;
 
   @override
   SharedStore get sharedStore => _sharedMap.sharedStore;

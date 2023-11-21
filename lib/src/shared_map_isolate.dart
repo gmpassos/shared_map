@@ -132,16 +132,10 @@ abstract class SharedMapIsolate<K, V> extends SharedIsolate
   final SharedStore sharedStore;
 
   SharedMapIsolate(this.sharedStore, super.id);
-
-  SharedMapCached<K, V>? _cached;
-
-  @override
-  SharedMapCached<K, V> cached({Duration? timeout}) =>
-      _cached ??= SharedMapCached<K, V>(this, timeout: timeout);
 }
 
 class SharedMapIsolateServer<K, V> extends SharedMapIsolate<K, V>
-    implements SharedMap<K, V> {
+    implements SharedMapSync<K, V> {
   final Map<K, V?> _entries;
 
   SharedMapIsolateServer(super.sharedStore, super.id) : _entries = {};
@@ -235,6 +229,12 @@ class SharedMapIsolateServer<K, V> extends SharedMapIsolate<K, V>
 
   @override
   int length() => _entries.length;
+
+  late final generic.SharedMapCacheGeneric<K, V> _cached =
+      generic.SharedMapCacheGeneric<K, V>(this);
+
+  @override
+  SharedMapCached<K, V> cached({Duration? timeout}) => _cached;
 
   @override
   SharedMapReferenceIsolate sharedReference() => SharedMapReferenceIsolate(
@@ -351,6 +351,14 @@ class SharedMapIsolateClient<K, V> extends SharedMapIsolate<K, V>
     _serverPort.send([SharedMapOperation.length, _receivePort.sendPort, msgID]);
 
     return completer.future;
+  }
+
+  final Expando<SharedMapCached<K, V>> _cached = Expando();
+
+  @override
+  SharedMapCached<K, V> cached({Duration? timeout}) {
+    timeout ??= SharedMapCached.defaultTimeout;
+    return _cached[timeout] ??= SharedMapCached<K, V>(this, timeout: timeout);
   }
 
   @override
