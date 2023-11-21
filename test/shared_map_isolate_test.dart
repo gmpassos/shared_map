@@ -183,6 +183,17 @@ void main() {
 
       expect(await m1.keys(), equals(['c']));
       expect(await m1.length(), equals(1));
+
+      var cl1 = await Isolate.run<int>(() async {
+        var store5 = SharedStore.fromSharedReference(sharedStoreReference);
+        var m8 = await store5.getSharedMap(sharedMapID);
+        return m8!.clear();
+      });
+
+      expect(cl1, equals(1));
+      expect(await m1.length(), equals(0));
+
+      expect(await m1.clear(), equals(0));
     });
   });
 
@@ -252,6 +263,9 @@ void main() {
 
       expect(va5, equals(11111));
       expect(await m1.get('a'), equals(11111));
+
+      expect(await m1.clear(), equals(1));
+      expect(await m1.length(), equals(0));
     });
   });
 }

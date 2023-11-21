@@ -118,6 +118,9 @@ void main() {
 
       expect(await m1.keys(), equals(['c']));
       expect(await m1.length(), equals(1));
+
+      expect(await m1.clear(), equals(1));
+      expect(await m1.length(), equals(0));
     });
 
     test('newUUID', () async {
