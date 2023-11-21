@@ -2,6 +2,7 @@
 
 - `SharedMap`:
   - Added `clear`.
+- New `FutureSharedMapExtension` and `FutureOrSharedMapExtension`.
 
 ## 1.0.6
 

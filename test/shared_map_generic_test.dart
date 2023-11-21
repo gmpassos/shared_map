@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:shared_map/shared_map.dart';
 import 'package:shared_map/src/shared_map_generic.dart';
 import 'package:test/test.dart';
@@ -86,7 +88,13 @@ void main() {
         expect(identical(cached2, cached1), isTrue);
         expect(await cached2.get('a'), equals(222));
 
+        expect(await Future.value(cached2).get('a'), equals(222));
+        expect(await _asFutureOr(cached2).get('a'), equals(222));
+
         expect(await cached2.putIfAbsent('a', 5555), equals(222));
+
+        expect(await Future.value(cached2).putIfAbsent('a', 5555), equals(222));
+        expect(await _asFutureOr(cached2).putIfAbsent('a', 5555), equals(222));
 
         expect(await cached2.put('a', 333), equals(333));
 
@@ -95,8 +103,17 @@ void main() {
 
       expect(await m1.get('a'), equals(333));
 
+      expect(await Future.value(m1).get('a'), equals(333));
+      expect(await _asFutureOr(m1).get('a'), equals(333));
+
       expect(await m1.keys(), equals(['a', 'b', 'c']));
       expect(await m1.length(), equals(3));
+
+      expect(await Future.value(m1).keys(), equals(['a', 'b', 'c']));
+      expect(await Future.value(m1).length(), equals(3));
+
+      expect(await _asFutureOr(m1).keys(), equals(['a', 'b', 'c']));
+      expect(await _asFutureOr(m1).length(), equals(3));
 
       {
         var cached3 = m1.cached();
@@ -141,3 +158,5 @@ void main() {
     });
   });
 }
+
+FutureOr<T> _asFutureOr<T>(T o) => o;
