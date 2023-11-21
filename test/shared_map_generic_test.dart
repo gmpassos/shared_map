@@ -83,23 +83,23 @@ void main() {
       }
 
       {
-        var cached2 = await Future.value(m1).cached();
+        var cached2 = await _asFuture(m1).cached();
 
         expect(identical(cached2, cached1), isTrue);
         expect(await cached2.get('a'), equals(222));
 
-        expect(await Future.value(cached2).get('a'), equals(222));
+        expect(await _asFuture(cached2).get('a'), equals(222));
         expect(await _asFutureOr(cached2).get('a'), equals(222));
 
         expect(await cached2.putIfAbsent('a', 5555), equals(222));
 
-        expect(await Future.value(cached2).putIfAbsent('a', 5555), equals(222));
+        expect(await _asFuture(cached2).putIfAbsent('a', 5555), equals(222));
         expect(await _asFutureOr(cached2).putIfAbsent('a', 5555), equals(222));
 
         expect(await cached2.put('a', 331), equals(331));
         expect(await cached2.get('a'), equals(331));
 
-        expect(await Future.value(cached2).put('a', 332), equals(332));
+        expect(await _asFuture(cached2).put('a', 332), equals(332));
         expect(await cached2.get('a'), equals(332));
 
         expect(await _asFutureOr(cached2).put('a', 333), equals(333));
@@ -109,14 +109,14 @@ void main() {
 
       expect(await m1.get('a'), equals(333));
 
-      expect(await Future.value(m1).get('a'), equals(333));
+      expect(await _asFuture(m1).get('a'), equals(333));
       expect(await _asFutureOr(m1).get('a'), equals(333));
 
       expect(await m1.keys(), equals(['a', 'b', 'c']));
       expect(await m1.length(), equals(3));
 
-      expect(await Future.value(m1).keys(), equals(['a', 'b', 'c']));
-      expect(await Future.value(m1).length(), equals(3));
+      expect(await _asFuture(m1).keys(), equals(['a', 'b', 'c']));
+      expect(await _asFuture(m1).length(), equals(3));
 
       expect(await _asFutureOr(m1).keys(), equals(['a', 'b', 'c']));
       expect(await _asFutureOr(m1).length(), equals(3));
@@ -129,7 +129,7 @@ void main() {
 
         expect(await cached3.remove('a'), equals(333));
 
-        expect(await Future.value(cached3).remove('a'), isNull);
+        expect(await _asFuture(cached3).remove('a'), isNull);
         expect(await _asFutureOr(cached3).remove('a'), isNull);
 
         expect(await cached3.get('a'), isNull);
@@ -141,14 +141,13 @@ void main() {
       expect(await m1.length(), equals(2));
 
       expect(await m1.removeAll(['b', 'x']), equals([2001, null]));
-      expect(
-          await Future.value(m1).removeAll(['b', 'x']), equals([null, null]));
+      expect(await _asFuture(m1).removeAll(['b', 'x']), equals([null, null]));
       expect(await _asFutureOr(m1).removeAll(['b', 'x']), equals([null, null]));
 
       expect(await m1.keys(), equals(['c']));
-      expect(await m1.length(), equals(1));
+      expect(await _asFuture(m1).length(), equals(1));
 
-      expect(await Future.value(m1).clear(), equals(1));
+      expect(await _asFuture(m1).clear(), equals(1));
       expect(await m1.length(), equals(0));
 
       expect(await _asFutureOr(m1).clear(), equals(0));
@@ -172,5 +171,7 @@ void main() {
     });
   });
 }
+
+FutureOr<T> _asFuture<T>(T o) => Future<T>.value(o);
 
 FutureOr<T> _asFutureOr<T>(T o) => o;
