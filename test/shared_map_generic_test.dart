@@ -83,7 +83,7 @@ void main() {
       }
 
       {
-        var cached2 = m1.cached();
+        var cached2 = await Future.value(m1).cached();
 
         expect(identical(cached2, cached1), isTrue);
         expect(await cached2.get('a'), equals(222));
@@ -122,7 +122,7 @@ void main() {
       expect(await _asFutureOr(m1).length(), equals(3));
 
       {
-        var cached3 = m1.cached();
+        var cached3 = await _asFutureOr(m1).cached();
 
         expect(identical(cached3, cached1), isTrue);
         expect(await cached3.get('a'), equals(333));
