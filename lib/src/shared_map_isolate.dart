@@ -192,6 +192,12 @@ class SharedMapIsolateServer<K, V> extends SharedMapIsolate<K, V>
           {
             response = _entries.length;
           }
+        case SharedMapOperation.clear:
+          {
+            var lng = _entries.length;
+            _entries.clear();
+            response = lng;
+          }
       }
 
       clientPort.send([messageID, response]);
@@ -229,6 +235,13 @@ class SharedMapIsolateServer<K, V> extends SharedMapIsolate<K, V>
 
   @override
   int length() => _entries.length;
+
+  @override
+  int clear() {
+    var lng = _entries.length;
+    _entries.clear();
+    return lng;
+  }
 
   late final generic.SharedMapCacheGeneric<K, V> _cached =
       generic.SharedMapCacheGeneric<K, V>(this);
@@ -349,6 +362,16 @@ class SharedMapIsolateClient<K, V> extends SharedMapIsolate<K, V>
     var completer = _waitingResponse[msgID] = Completer<int>();
 
     _serverPort.send([SharedMapOperation.length, _receivePort.sendPort, msgID]);
+
+    return completer.future;
+  }
+
+  @override
+  FutureOr<int> clear() {
+    var msgID = ++_msgIDCounter;
+    var completer = _waitingResponse[msgID] = Completer<int>();
+
+    _serverPort.send([SharedMapOperation.clear, _receivePort.sendPort, msgID]);
 
     return completer.future;
   }

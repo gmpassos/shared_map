@@ -1,3 +1,8 @@
+## 1.0.7
+
+- `SharedMap`:
+  - Added `clear`.
+
 ## 1.0.6
 
 - New `NotSharedMap`, `NotSharedStore` and `SharedMapSync`.
