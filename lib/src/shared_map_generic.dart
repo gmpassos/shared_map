@@ -35,7 +35,7 @@ class SharedMapGeneric<K, V> implements SharedMapSync<K, V> {
   @override
   final String id;
 
-  final Map<K, V?> _entries = {};
+  final Map<K, V> _entries = {};
 
   SharedMapGeneric(this.sharedStore, this.id);
 
@@ -46,6 +46,10 @@ class SharedMapGeneric<K, V> implements SharedMapSync<K, V> {
 
   @override
   V? put(K key, V? value) {
+    if (value == null) {
+      _entries.remove(key);
+      return null;
+    }
     return _entries[key] = value;
   }
 
@@ -53,6 +57,9 @@ class SharedMapGeneric<K, V> implements SharedMapSync<K, V> {
   V? putIfAbsent(K key, V? absentValue) {
     var prev = _entries[key];
     if (prev == null) {
+      if (absentValue == null) {
+        return null;
+      }
       return _entries[key] = absentValue;
     } else {
       return prev;
@@ -70,6 +77,9 @@ class SharedMapGeneric<K, V> implements SharedMapSync<K, V> {
 
   @override
   List<K> keys() => _entries.keys.toList();
+
+  @override
+  List<V> values() => _entries.values.toList();
 
   @override
   int length() => _entries.length;
@@ -133,6 +143,10 @@ class SharedMapCacheGeneric<K, V> implements SharedMapCached<K, V> {
 
   @override
   List<K> keys({Duration? timeout, bool refresh = false}) => _sharedMap.keys();
+
+  @override
+  List<V> values({Duration? timeout, bool refresh = false}) =>
+      _sharedMap.values();
 
   @override
   int length({Duration? timeout, bool refresh = false}) => _sharedMap.length();

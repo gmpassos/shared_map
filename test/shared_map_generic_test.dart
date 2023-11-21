@@ -116,9 +116,11 @@ void main() {
       expect(await m1.length(), equals(3));
 
       expect(await _asFuture(m1).keys(), equals(['a', 'b', 'c']));
+      expect(await _asFuture(m1).values(), equals([333, 2001, 3001]));
       expect(await _asFuture(m1).length(), equals(3));
 
       expect(await _asFutureOr(m1).keys(), equals(['a', 'b', 'c']));
+      expect(await _asFutureOr(m1).values(), equals([333, 2001, 3001]));
       expect(await _asFutureOr(m1).length(), equals(3));
 
       {

@@ -18,6 +18,8 @@ extension FutureSharedMapExtension<K, V> on Future<SharedMap<K, V>> {
 
   Future<List<K>> keys() => then((o) => o.keys());
 
+  Future<List<V>> values() => then((o) => o.values());
+
   Future<int> length() => then((o) => o.length());
 
   Future<int> clear() => then((o) => o.clear());
@@ -79,6 +81,15 @@ extension FutureOrSharedMapExtension<K, V> on FutureOr<SharedMap<K, V>> {
       return self.keys();
     } else {
       return self.keys();
+    }
+  }
+
+  FutureOr<List<V>> values() {
+    var self = this;
+    if (self is Future<SharedMap<K, V>>) {
+      return self.values();
+    } else {
+      return self.values();
     }
   }
 

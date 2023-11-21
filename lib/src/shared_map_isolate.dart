@@ -136,7 +136,7 @@ abstract class SharedMapIsolate<K, V> extends SharedIsolate
 
 class SharedMapIsolateServer<K, V> extends SharedMapIsolate<K, V>
     implements SharedMapSync<K, V> {
-  final Map<K, V?> _entries;
+  final Map<K, V> _entries;
 
   SharedMapIsolateServer(super.sharedStore, super.id) : _entries = {};
 
@@ -188,6 +188,10 @@ class SharedMapIsolateServer<K, V> extends SharedMapIsolate<K, V>
           {
             response = _entries.keys.toList();
           }
+        case SharedMapOperation.allValues:
+          {
+            response = _entries.values.toList();
+          }
         case SharedMapOperation.length:
           {
             response = _entries.length;
@@ -211,12 +215,21 @@ class SharedMapIsolateServer<K, V> extends SharedMapIsolate<K, V>
   V? get(K key) => _entries[key];
 
   @override
-  V? put(K key, V? value) => _entries[key] = value;
+  V? put(K key, V? value) {
+    if (value == null) {
+      _entries.remove(key);
+      return null;
+    }
+    return _entries[key] = value;
+  }
 
   @override
   V? putIfAbsent(K key, V? absentValue) {
     var prev = _entries[key];
     if (prev == null) {
+      if (absentValue == null) {
+        return null;
+      }
       return _entries[key] = absentValue;
     } else {
       return prev;
@@ -232,6 +245,9 @@ class SharedMapIsolateServer<K, V> extends SharedMapIsolate<K, V>
 
   @override
   List<K> keys() => _entries.keys.toList();
+
+  @override
+  List<V> values() => _entries.values.toList();
 
   @override
   int length() => _entries.length;
@@ -352,6 +368,16 @@ class SharedMapIsolateClient<K, V> extends SharedMapIsolate<K, V>
     var (msgID, completer) = _newMsg<List<K>>();
 
     _serverPort.send([SharedMapOperation.keys, _receivePort.sendPort, msgID]);
+
+    return completer.future;
+  }
+
+  @override
+  FutureOr<List<V>> values() {
+    var (msgID, completer) = _newMsg<List<V>>();
+
+    _serverPort
+        .send([SharedMapOperation.allValues, _receivePort.sendPort, msgID]);
 
     return completer.future;
   }

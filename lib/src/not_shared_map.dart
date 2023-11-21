@@ -38,7 +38,7 @@ class NotSharedMap<K, V> implements SharedMapSync<K, V> {
   @override
   late NotSharedStore sharedStore = NotSharedStore(this);
 
-  final Map<K, V?> _entries = {};
+  final Map<K, V> _entries = {};
 
   NotSharedMap() : id = 'NotSharedMap#${++_notSharedIDCount}';
 
@@ -54,15 +54,27 @@ class NotSharedMap<K, V> implements SharedMapSync<K, V> {
   List<K> keys() => _entries.keys.toList();
 
   @override
+  List<V> values() => _entries.values.toList();
+
+  @override
   int length() => _entries.length;
 
   @override
-  V? put(K key, V? value) => _entries[key];
+  V? put(K key, V? value) {
+    if (value == null) {
+      _entries.remove(key);
+      return null;
+    }
+    return _entries[key] = value;
+  }
 
   @override
   V? putIfAbsent(K key, V? absentValue) {
     var prev = _entries[key];
     if (prev == null) {
+      if (absentValue == null) {
+        return null;
+      }
       return _entries[key] = absentValue;
     } else {
       return prev;
@@ -146,6 +158,10 @@ class _NotSharedMapCache<K, V> implements SharedMapCached<K, V> {
 
   @override
   List<K> keys({Duration? timeout, bool refresh = false}) => _sharedMap.keys();
+
+  @override
+  List<V> values({Duration? timeout, bool refresh = false}) =>
+      _sharedMap.values();
 
   @override
   int length({Duration? timeout, bool refresh = false}) => _sharedMap.length();

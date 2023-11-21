@@ -131,6 +131,43 @@ class SharedMapCached<K, V> implements SharedMap<K, V> {
     }
   }
 
+  (DateTime, List<V>)? _valuesCached;
+
+  @override
+  FutureOr<List<V>> values({Duration? timeout, bool refresh = false}) {
+    var now = DateTime.now();
+
+    if (refresh) {
+      var values = _sharedMap.values();
+      return _cacheValues(values, now);
+    }
+
+    var valuesCached = _valuesCached;
+    if (valuesCached != null) {
+      timeout ??= this.timeout;
+
+      var elapsedTime = now.difference(valuesCached.$1);
+      if (elapsedTime <= timeout) {
+        return valuesCached.$2;
+      }
+    }
+
+    var values = _sharedMap.values();
+    return _cacheValues(values, now);
+  }
+
+  FutureOr<List<V>> _cacheValues(FutureOr<List<V>> values, DateTime now) {
+    if (values is Future<List<V>>) {
+      return values.then((values) {
+        _valuesCached = (now, values);
+        return values;
+      });
+    } else {
+      _valuesCached = (now, values);
+      return values;
+    }
+  }
+
   (DateTime, int)? _keysLengthCached;
 
   @override

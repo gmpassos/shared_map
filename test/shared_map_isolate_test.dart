@@ -138,7 +138,18 @@ void main() {
       var vc1 = await Isolate.run<int?>(() async {
         var store5 = SharedStore.fromSharedReference(sharedStoreReference);
         var m7 = await store5.getSharedMap(sharedMapID);
-        var vc1 = await m7?.putIfAbsent('c', 3001);
+
+        var keys = await m7!.keys();
+        if (!_listEquals(keys, ['a', 'b'])) {
+          throw StateError("Expected: ['a', 'b'] ; got: $keys");
+        }
+
+        var values = await m7.values();
+        if (!_listEquals(values, [222, 2001])) {
+          throw StateError("Expected: [222, 2001] ; got: $values");
+        }
+
+        var vc1 = await m7.putIfAbsent('c', 3001);
         return vc1;
       });
 
@@ -161,6 +172,7 @@ void main() {
       expect(await m1.get('a'), equals(333));
 
       expect(await m1.keys(), equals(['a', 'b', 'c']));
+      expect(await m1.values(), equals([333, 2001, 3001]));
       expect(await m1.length(), equals(3));
 
       {
@@ -268,4 +280,16 @@ void main() {
       expect(await m1.length(), equals(0));
     });
   });
+}
+
+bool _listEquals<T>(List<T> l1, List<T> l2) {
+  if (l1.length != l2.length) return false;
+
+  for (var i = 0; i < l1.length; ++i) {
+    var e1 = l1[i];
+    var e2 = l2[i];
+    if (e1 != e2) return false;
+  }
+
+  return true;
 }

@@ -1,6 +1,6 @@
 name: shared_map
 description: Offers a versatile, synchronized Map for efficient sharing between Dart application parts, including Isolates or external apps.
-version: 1.0.7
+version: 1.0.8
 repository: https://github.com/gmpassos/shared_map
 
 environment:
