@@ -1,7 +1,7 @@
 ## 1.0.8
 
 - `SharedMap`:
-  - Added `values`.
+  - Added `values`, `entries` and `where`.
 
 ## 1.0.7
 

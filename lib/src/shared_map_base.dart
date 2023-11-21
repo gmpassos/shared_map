@@ -84,8 +84,10 @@ enum SharedMapOperation {
   removeAll,
   keys,
   allValues,
+  entries,
   length,
   clear,
+  where,
 }
 
 /// Base class for [SharedMap] implementations.
@@ -134,6 +136,12 @@ abstract class SharedMap<K, V> extends SharedType {
   /// Returns all the values.
   FutureOr<List<V>> values();
 
+  /// Returns all the entries.
+  FutureOr<List<MapEntry<K, V>>> entries();
+
+  /// Returns all the entries that satisfy the predicate [test].
+  FutureOr<List<MapEntry<K, V>>> where(bool Function(K key, V value) test);
+
   /// Returns [keys] length.
   FutureOr<int> length();
 
@@ -169,6 +177,12 @@ abstract class SharedMapSync<K, V> implements SharedMap<K, V> {
 
   @override
   List<V> values();
+
+  @override
+  List<MapEntry<K, V>> entries();
+
+  @override
+  List<MapEntry<K, V>> where(bool Function(K key, V value) test);
 
   @override
   int length();

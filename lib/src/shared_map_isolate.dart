@@ -192,6 +192,10 @@ class SharedMapIsolateServer<K, V> extends SharedMapIsolate<K, V>
           {
             response = _entries.values.toList();
           }
+        case SharedMapOperation.entries:
+          {
+            response = _entries.entries.toList();
+          }
         case SharedMapOperation.length:
           {
             response = _entries.length;
@@ -201,6 +205,12 @@ class SharedMapIsolateServer<K, V> extends SharedMapIsolate<K, V>
             var lng = _entries.length;
             _entries.clear();
             response = lng;
+          }
+        case SharedMapOperation.where:
+          {
+            var test = m[3];
+            response =
+                _entries.entries.where((e) => test(e.key, e.value)).toList();
           }
       }
 
@@ -248,6 +258,13 @@ class SharedMapIsolateServer<K, V> extends SharedMapIsolate<K, V>
 
   @override
   List<V> values() => _entries.values.toList();
+
+  @override
+  List<MapEntry<K, V>> entries() => _entries.entries.toList();
+
+  @override
+  List<MapEntry<K, V>> where(bool Function(K key, V value) test) =>
+      _entries.entries.where((e) => test(e.key, e.value)).toList();
 
   @override
   int length() => _entries.length;
@@ -344,7 +361,7 @@ class SharedMapIsolateClient<K, V> extends SharedMapIsolate<K, V>
   }
 
   @override
-  FutureOr<V?> remove(K key) {
+  Future<V?> remove(K key) {
     var (msgID, completer) = _newMsg<V?>();
 
     _serverPort
@@ -354,7 +371,7 @@ class SharedMapIsolateClient<K, V> extends SharedMapIsolate<K, V>
   }
 
   @override
-  FutureOr<List<V?>> removeAll(List<K> keys) {
+  Future<List<V?>> removeAll(List<K> keys) {
     var (msgID, completer) = _newMsg<List<V?>>();
 
     _serverPort.send(
@@ -364,7 +381,7 @@ class SharedMapIsolateClient<K, V> extends SharedMapIsolate<K, V>
   }
 
   @override
-  FutureOr<List<K>> keys() {
+  Future<List<K>> keys() {
     var (msgID, completer) = _newMsg<List<K>>();
 
     _serverPort.send([SharedMapOperation.keys, _receivePort.sendPort, msgID]);
@@ -373,7 +390,7 @@ class SharedMapIsolateClient<K, V> extends SharedMapIsolate<K, V>
   }
 
   @override
-  FutureOr<List<V>> values() {
+  Future<List<V>> values() {
     var (msgID, completer) = _newMsg<List<V>>();
 
     _serverPort
@@ -383,7 +400,27 @@ class SharedMapIsolateClient<K, V> extends SharedMapIsolate<K, V>
   }
 
   @override
-  FutureOr<int> length() {
+  Future<List<MapEntry<K, V>>> entries() {
+    var (msgID, completer) = _newMsg<List<MapEntry<K, V>>>();
+
+    _serverPort
+        .send([SharedMapOperation.entries, _receivePort.sendPort, msgID]);
+
+    return completer.future;
+  }
+
+  @override
+  Future<List<MapEntry<K, V>>> where(bool Function(K key, V value) test) {
+    var (msgID, completer) = _newMsg<List<MapEntry<K, V>>>();
+
+    _serverPort
+        .send([SharedMapOperation.where, _receivePort.sendPort, msgID, test]);
+
+    return completer.future;
+  }
+
+  @override
+  Future<int> length() {
     var (msgID, completer) = _newMsg<int>();
 
     _serverPort.send([SharedMapOperation.length, _receivePort.sendPort, msgID]);
@@ -392,7 +429,7 @@ class SharedMapIsolateClient<K, V> extends SharedMapIsolate<K, V>
   }
 
   @override
-  FutureOr<int> clear() {
+  Future<int> clear() {
     var (msgID, completer) = _newMsg<int>();
 
     _serverPort.send([SharedMapOperation.clear, _receivePort.sendPort, msgID]);

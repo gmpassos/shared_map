@@ -57,6 +57,13 @@ class NotSharedMap<K, V> implements SharedMapSync<K, V> {
   List<V> values() => _entries.values.toList();
 
   @override
+  List<MapEntry<K, V>> entries() => _entries.entries.toList();
+
+  @override
+  List<MapEntry<K, V>> where(bool Function(K key, V value) test) =>
+      _entries.entries.where((e) => test(e.key, e.value)).toList();
+
+  @override
   int length() => _entries.length;
 
   @override
@@ -162,6 +169,14 @@ class _NotSharedMapCache<K, V> implements SharedMapCached<K, V> {
   @override
   List<V> values({Duration? timeout, bool refresh = false}) =>
       _sharedMap.values();
+
+  @override
+  List<MapEntry<K, V>> entries({Duration? timeout, bool refresh = false}) =>
+      _sharedMap.entries();
+
+  @override
+  List<MapEntry<K, V>> where(bool Function(K key, V value) test) =>
+      _sharedMap.where(test);
 
   @override
   int length({Duration? timeout, bool refresh = false}) => _sharedMap.length();

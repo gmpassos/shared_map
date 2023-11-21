@@ -149,6 +149,16 @@ void main() {
           throw StateError("Expected: [222, 2001] ; got: $values");
         }
 
+        var entries = await m7.entries().toRecords();
+        if (!_listEquals(entries, [('a', 222), ('b', 2001)])) {
+          throw StateError("Expected: [222, 2001] ; got: $values");
+        }
+
+        var where = await m7.where((k, v) => v == 222).toRecords();
+        if (!_listEquals(where, [('a', 222)])) {
+          throw StateError("Expected: ['a', 222] ; got: $where");
+        }
+
         var vc1 = await m7.putIfAbsent('c', 3001);
         return vc1;
       });

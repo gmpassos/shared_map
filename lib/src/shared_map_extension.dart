@@ -20,6 +20,11 @@ extension FutureSharedMapExtension<K, V> on Future<SharedMap<K, V>> {
 
   Future<List<V>> values() => then((o) => o.values());
 
+  Future<List<MapEntry<K, V>>> entries() => then((o) => o.entries());
+
+  Future<List<MapEntry<K, V>>> where(bool Function(K key, V value) test) =>
+      then((o) => o.where(test));
+
   Future<int> length() => then((o) => o.length());
 
   Future<int> clear() => then((o) => o.clear());
@@ -93,6 +98,24 @@ extension FutureOrSharedMapExtension<K, V> on FutureOr<SharedMap<K, V>> {
     }
   }
 
+  FutureOr<List<MapEntry<K, V>>> entries() {
+    var self = this;
+    if (self is Future<SharedMap<K, V>>) {
+      return self.entries();
+    } else {
+      return self.entries();
+    }
+  }
+
+  FutureOr<List<MapEntry<K, V>>> where(bool Function(K key, V value) test) {
+    var self = this;
+    if (self is Future<SharedMap<K, V>>) {
+      return self.where(test);
+    } else {
+      return self.where(test);
+    }
+  }
+
   FutureOr<int> length() {
     var self = this;
     if (self is Future<SharedMap<K, V>>) {
@@ -117,6 +140,42 @@ extension FutureOrSharedMapExtension<K, V> on FutureOr<SharedMap<K, V>> {
       return self.cached(timeout: timeout);
     } else {
       return self.cached(timeout: timeout);
+    }
+  }
+}
+
+extension IterableMapEntryExtension<K, V> on Iterable<MapEntry<K, V>> {
+  List<(K, V)> toRecords() => map((e) => (e.key, e.value)).toList();
+
+  List<({K key, V value})> toRecordsNamed() =>
+      map((e) => (key: e.key, value: e.value)).toList();
+}
+
+extension FutureIterableMapEntryExtension<K, V>
+    on Future<Iterable<MapEntry<K, V>>> {
+  Future<List<(K, V)>> toRecords() => then((o) => o.toRecords());
+
+  Future<List<({K key, V value})>> toRecordsNamed() =>
+      then((o) => o.toRecordsNamed());
+}
+
+extension FutureOrIterableMapEntryExtension<K, V>
+    on FutureOr<Iterable<MapEntry<K, V>>> {
+  FutureOr<List<(K, V)>> toRecords() {
+    var self = this;
+    if (self is Future<Iterable<MapEntry<K, V>>>) {
+      return self.toRecords();
+    } else {
+      return self.toRecords();
+    }
+  }
+
+  FutureOr<List<({K key, V value})>> toRecordsNamed() {
+    var self = this;
+    if (self is Future<Iterable<MapEntry<K, V>>>) {
+      return self.toRecordsNamed();
+    } else {
+      return self.toRecordsNamed();
     }
   }
 }

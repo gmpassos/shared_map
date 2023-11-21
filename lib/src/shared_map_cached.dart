@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:shared_map/shared_map.dart';
+
 import 'shared_map_base.dart';
 
 /// Cached version of a [SharedMap].
@@ -167,6 +169,49 @@ class SharedMapCached<K, V> implements SharedMap<K, V> {
       return values;
     }
   }
+
+  (DateTime, List<MapEntry<K, V>>)? _entriesCached;
+
+  @override
+  FutureOr<List<MapEntry<K, V>>> entries(
+      {Duration? timeout, bool refresh = false}) {
+    var now = DateTime.now();
+
+    if (refresh) {
+      var entries = _sharedMap.entries();
+      return _cacheEntries(entries, now);
+    }
+
+    var entriesCached = _entriesCached;
+    if (entriesCached != null) {
+      timeout ??= this.timeout;
+
+      var elapsedTime = now.difference(entriesCached.$1);
+      if (elapsedTime <= timeout) {
+        return entriesCached.$2;
+      }
+    }
+
+    var entries = _sharedMap.entries();
+    return _cacheEntries(entries, now);
+  }
+
+  FutureOr<List<MapEntry<K, V>>> _cacheEntries(
+      FutureOr<List<MapEntry<K, V>>> entries, DateTime now) {
+    if (entries is Future<List<MapEntry<K, V>>>) {
+      return entries.then((values) {
+        _entriesCached = (now, values);
+        return values;
+      });
+    } else {
+      _entriesCached = (now, entries);
+      return entries;
+    }
+  }
+
+  @override
+  FutureOr<List<MapEntry<K, V>>> where(bool Function(K key, V value) test) =>
+      _sharedMap.where(test);
 
   (DateTime, int)? _keysLengthCached;
 
