@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:isolate';
 
+import 'not_shared_map.dart';
 import 'shared_map_base.dart';
 import 'shared_map_cached.dart';
 import 'shared_map_generic.dart' as generic;
@@ -516,6 +517,10 @@ SharedMapReference createSharedMapReference({Map<String, dynamic>? json}) {
 SharedStore createSharedStore(
     {String? id, SharedStoreReference? sharedReference}) {
   if (sharedReference != null) {
+    if (sharedReference is NotSharedStoreReference) {
+      return sharedReference.notSharedStore;
+    }
+
     id ??= sharedReference.id;
 
     var prev = SharedStoreIsolate._instances[id]?.target;
@@ -556,7 +561,9 @@ SharedMap<K, V> createSharedMap<K, V>(
     String? id,
     SharedMapReference? sharedReference}) {
   if (sharedReference != null) {
-    if (sharedReference is SharedMapReferenceIsolate) {
+    if (sharedReference is NotSharedMapReference) {
+      return sharedReference.notSharedMap as SharedMap<K, V>;
+    } else if (sharedReference is SharedMapReferenceIsolate) {
       id ??= sharedReference.id;
 
       var sharedStoreReference =
