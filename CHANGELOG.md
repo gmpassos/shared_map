@@ -1,3 +1,12 @@
+## 1.0.10
+
+- `SharedMapCached`:
+  - Introduces async call caching for `get`, `keys`, `values`, `entries` and `length` operations,
+    to avoid simultaneous asynchronous calls (fetching) for the same operation. 
+
+- `SharedStoreIsolateServer`:
+  - Fix  call to `getSharedMap<K,V>()` with correct `K` and `V` casting when requested by `SharedStoreIsolateClient`.
+
 ## 1.0.9
 
 - `SharedMap`:

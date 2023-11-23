@@ -75,23 +75,38 @@ class SharedMapCached<K, V> implements SharedMap<K, V> {
       }
     }
 
+    var getAsync = _getAsync;
+    if (getAsync != null) {
+      return getAsync;
+    }
+
     var val = _sharedMap.get(key);
     return _cacheValue(key, val, now);
   }
 
+  Future<V?>? _getAsync;
+
   FutureOr<V?> _cacheValue(K key, FutureOr<V?> value, DateTime now) {
     if (value is Future<V?>) {
-      return value.then((value) {
+      return _getAsync = value.then((value) {
         if (value != null) {
           _cache[key] = (now, value);
         }
+        _getAsync = null;
         return value;
+      }, onError: (e) {
+        _getAsync = null;
+        throw e;
       });
-    } else if (value != null) {
-      _cache[key] = (now, value);
-      return value;
     } else {
-      return null;
+      _getAsync = null;
+
+      if (value != null) {
+        _cache[key] = (now, value);
+        return value;
+      } else {
+        return null;
+      }
     }
   }
 
@@ -143,18 +158,30 @@ class SharedMapCached<K, V> implements SharedMap<K, V> {
       }
     }
 
+    var keysAsync = _keysAsync;
+    if (keysAsync != null) {
+      return keysAsync;
+    }
+
     var keys = _sharedMap.keys();
     return _cacheKeys(keys, now);
   }
 
+  Future<List<K>>? _keysAsync;
+
   FutureOr<List<K>> _cacheKeys(FutureOr<List<K>> keys, DateTime now) {
     if (keys is Future<List<K>>) {
-      return keys.then((keys) {
+      return _keysAsync = keys.then((keys) {
         _keysCached = (now, keys);
+        _keysAsync = null;
         return keys;
+      }, onError: (e) {
+        _keysAsync = null;
+        throw e;
       });
     } else {
       _keysCached = (now, keys);
+      _keysAsync = null;
       return keys;
     }
   }
@@ -180,18 +207,30 @@ class SharedMapCached<K, V> implements SharedMap<K, V> {
       }
     }
 
+    var valuesAsync = _valuesAsync;
+    if (valuesAsync != null) {
+      return valuesAsync;
+    }
+
     var values = _sharedMap.values();
     return _cacheValues(values, now);
   }
 
+  Future<List<V>>? _valuesAsync;
+
   FutureOr<List<V>> _cacheValues(FutureOr<List<V>> values, DateTime now) {
     if (values is Future<List<V>>) {
-      return values.then((values) {
+      return _valuesAsync = values.then((values) {
         _valuesCached = (now, values);
+        _valuesAsync = null;
         return values;
+      }, onError: (e) {
+        _valuesAsync = null;
+        throw e;
       });
     } else {
       _valuesCached = (now, values);
+      _valuesAsync = null;
       return values;
     }
   }
@@ -218,19 +257,31 @@ class SharedMapCached<K, V> implements SharedMap<K, V> {
       }
     }
 
+    var entriesAsync = _entriesAsync;
+    if (entriesAsync != null) {
+      return entriesAsync;
+    }
+
     var entries = _sharedMap.entries();
     return _cacheEntries(entries, now);
   }
 
+  Future<List<MapEntry<K, V>>>? _entriesAsync;
+
   FutureOr<List<MapEntry<K, V>>> _cacheEntries(
       FutureOr<List<MapEntry<K, V>>> entries, DateTime now) {
     if (entries is Future<List<MapEntry<K, V>>>) {
-      return entries.then((values) {
+      return _entriesAsync = entries.then((values) {
         _entriesCached = (now, values);
+        _entriesAsync = null;
         return values;
+      }, onError: (e) {
+        _entriesAsync = null;
+        throw e;
       });
     } else {
       _entriesCached = (now, entries);
+      _entriesAsync = null;
       return entries;
     }
   }
@@ -260,18 +311,30 @@ class SharedMapCached<K, V> implements SharedMap<K, V> {
       }
     }
 
+    var lengthAsync = _lengthAsync;
+    if (lengthAsync != null) {
+      return lengthAsync;
+    }
+
     var length = _sharedMap.length();
     return _cacheKeysLength(length, now);
   }
 
+  Future<int>? _lengthAsync;
+
   FutureOr<int> _cacheKeysLength(FutureOr<int> length, DateTime now) {
     if (length is Future<int>) {
-      return length.then((length) {
+      return _lengthAsync = length.then((length) {
         _keysLengthCached = (now, length);
+        _lengthAsync = null;
         return length;
+      }, onError: (e) {
+        _lengthAsync = null;
+        throw e;
       });
     } else {
       _keysLengthCached = (now, length);
+      _lengthAsync = null;
       return length;
     }
   }

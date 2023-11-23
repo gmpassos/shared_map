@@ -45,8 +45,10 @@ class SharedStoreIsolateServer extends SharedStoreIsolate {
       var clientPort = m[0] as SendPort;
       var messageID = m[1] as int;
       var id = m[2] as String;
+      var callCasted = m[3] as _CallCasted;
 
-      var sharedMap = _sharedMaps[id];
+      var sharedMap =
+          callCasted(<K1, V1>() => getSharedMap<K1, V1>(id)) as SharedMap?;
 
       clientPort.send([messageID, sharedMap?.sharedReference()]);
       return;
@@ -56,7 +58,7 @@ class SharedStoreIsolateServer extends SharedStoreIsolate {
   }
 
   @override
-  FutureOr<SharedMap<K, V>?> getSharedMap<K, V>(
+  SharedMap<K, V>? getSharedMap<K, V>(
     String id, {
     SharedMapEntryCallback<K, V>? onPut,
     SharedMapEntryCallback<K, V>? onRemove,
@@ -81,6 +83,8 @@ class SharedStoreIsolateServer extends SharedStoreIsolate {
   String toString() =>
       'SharedStoreIsolateServer[$id]{sharedMaps: ${_sharedMaps.length}}';
 }
+
+typedef _CallCasted<K, V> = Object? Function(Object? Function<K1, V1>() f);
 
 class SharedStoreIsolateClient extends SharedStoreIsolate {
   final SendPort _serverPort;
@@ -125,14 +129,24 @@ class SharedStoreIsolateClient extends SharedStoreIsolate {
     var msgID = ++_msgIDCounter;
     var completer = _waitingResponse[msgID] = Completer();
 
-    _serverPort.send([_receivePort.sendPort, msgID, id]);
+    _CallCasted<K, V> callCasted = _buildCallCasted();
+
+    _serverPort.send([_receivePort.sendPort, msgID, id, callCasted]);
 
     return completer.future.then((ref) {
-      var o = createSharedMap<K, V>(sharedReference: ref!);
+      if (ref == null) {
+        throw StateError(
+            "Can't get `SharedMap` `SendPort` from \"server\" instance: $id");
+      }
+      var o = createSharedMap<K, V>(sharedReference: ref);
       o.setCallbacksDynamic<K, V>(onPut: onPut, onRemove: onRemove);
       return o;
     });
   }
+
+  /// Generates the lambda [Function] that will passed to the
+  /// [SharedMapIsolateServer] to allow correct casted call to [getSharedMap].
+  _CallCasted<K, V> _buildCallCasted<K, V>() => (f) => f<K, V>();
 
   @override
   SharedStoreReferenceIsolate sharedReference() =>
