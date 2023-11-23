@@ -1,17 +1,27 @@
 import 'dart:async';
 
 import 'package:shared_map/shared_map.dart';
+import 'package:shared_map/src/not_shared_map.dart';
 import 'package:shared_map/src/shared_map_generic.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('SharedMap (generic)', () {
+  _doTest<String, int, SharedMapGeneric<String, int>>(
+      'generic', (id) => SharedStoreGeneric(id));
+
+  _doTest('not-shared', (id) => SharedStore.notShared());
+}
+
+void _doTest<K, V, T extends SharedMap<K, V>>(
+    String testName, SharedStore Function(String id) storeInstantiator) {
+  group('SharedMap ($testName)', () {
     test('basic', () async {
-      var store1 = SharedStoreGeneric('t1');
+      var store1 = storeInstantiator('t1');
 
       var m1 = await store1.getSharedMap<String, int>('m1');
       expect(m1, isNotNull);
-      expect(m1, isA<SharedMapGeneric<String, int>>());
+      expect(m1, isA<SharedMap<String, int>>());
+      expect(m1, isA<T>());
 
       var va1 = await m1!.get('a');
       expect(va1, isNull);
@@ -40,7 +50,8 @@ void main() {
         var store2 = SharedStore.fromSharedReference(sharedStoreReference);
         var m4 = await store2.getSharedMap(sharedMapID);
         var va5 = await m4?.get('a');
-        expect(va5, equals(111));
+
+        expect(va5, m4 is NotSharedMap ? isNull : equals(111));
       }
 
       {
@@ -51,19 +62,26 @@ void main() {
       }
 
       var va7 = await m1.get('a');
-      expect(va7, equals(222));
+
+      expect(va7, equals(m1 is NotSharedMap ? 111 : 222));
 
       var va8 = await m1.putIfAbsent('a', 1001);
-      expect(va8, equals(222));
+
+      expect(va8, equals(m1 is NotSharedMap ? 111 : 222));
 
       var cached1 = m1.cached();
-      expect(await cached1.get('a'), equals(222));
+
+      if (m1 is NotSharedMap) {
+        expect(await cached1.get('a'), equals(111));
+      } else {
+        expect(await cached1.get('a'), equals(222));
+      }
 
       {
         var store4 = SharedStore.fromSharedReference(sharedStoreReference);
         var m6 = await store4.getSharedMap(sharedMapID);
         var va9 = await m6?.putIfAbsent('a', 1001);
-        expect(va9, equals(222));
+        expect(va9, equals(m6 is NotSharedMap ? 1001 : 222));
       }
 
       var vb1 = await m1.putIfAbsent('b', 2001);
@@ -79,7 +97,12 @@ void main() {
         var vc1 = await m7?.putIfAbsent('c', 3001);
 
         expect(vc1, equals(3001));
-        expect(await m1.get('c'), equals(3001));
+        expect(await m1.get('c'), m1 is NotSharedMap ? isNull : equals(3001));
+      }
+
+      // Finish NotSharedMap test:
+      if (m1 is NotSharedMap) {
+        return;
       }
 
       {
@@ -163,17 +186,70 @@ void main() {
       expect(await _asFutureOr(m1).clear(), equals(0));
     });
 
-    test('newUUID', () async {
-      var store1 = SharedStoreGeneric(SharedType.newUUID());
+    test('onSharedMapPut + onSharedMapRemove', () async {
+      var store2 = storeInstantiator('t2');
 
-      expect(store1.id, startsWith('UUID-'));
+      if (store2 is! NotSharedStore) {
+        expect(store2.id, equals('t2'));
+      }
+
+      var m2 = await store2.getSharedMap<String, int>('m2');
+      expect(m2, isNotNull);
+
+      if (m2 is! NotSharedMap) {
+        expect(m2!.id, equals('m2'));
+      }
+
+      var events = <(String, String, int?)>[];
+
+      m2!.onPut = (k, v) => events.add(('put', k, v));
+      m2.onRemove = (k, v) => events.add(('rm', k, v));
+
+      expect(events, isEmpty);
+
+      var va1 = await m2.get('a');
+      expect(va1, isNull);
+
+      expect(events, isEmpty);
+
+      var va2 = m2.put('a', 11);
+      expect(va2, equals(11));
+
+      expect(events, equals([('put', 'a', 11)]));
+
+      var va3 = m2.putIfAbsent('a', 111);
+      expect(va3, equals(11));
+
+      expect(events, equals([('put', 'a', 11)]));
+
+      var va4 = m2.put('a', 111);
+      expect(va4, equals(111));
+
+      expect(events, equals([('put', 'a', 11), ('put', 'a', 111)]));
+
+      expect(m2.remove("a"), equals(111));
+
+      expect(events,
+          equals([('put', 'a', 11), ('put', 'a', 111), ('rm', 'a', 111)]));
+    });
+
+    test('newUUID', () async {
+      var store1 = storeInstantiator(SharedType.newUUID());
+
+      if (store1 is! NotSharedStore) {
+        expect(store1.id, startsWith('UUID-'));
+      }
 
       var m1 = await store1.getSharedMap<String, int>(SharedType.newUUID());
       expect(m1, isNotNull);
-      expect(m1, isA<SharedMapGeneric<String, int>>());
-      expect(m1!.id, startsWith('UUID-'));
+      expect(m1, isA<SharedMap<String, int>>());
+      expect(m1, isA<T>());
 
-      var va1 = await m1.get('a');
+      if (m1 is! NotSharedMap) {
+        expect(m1!.id, startsWith('UUID-'));
+      }
+
+      var va1 = await m1!.get('a');
       expect(va1, isNull);
 
       var va2 = m1.put('a', 11);

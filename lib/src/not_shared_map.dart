@@ -14,11 +14,19 @@ class NotSharedStore implements SharedStore {
       : id = 'NotSharedStore#${++_notSharedIDCount}';
 
   @override
-  SharedMap<K, V>? getSharedMap<K, V>(String id) {
+  SharedMap<K, V>? getSharedMap<K, V>(
+    String id, {
+    SharedMapEntryCallback<K, V>? onPut,
+    SharedMapEntryCallback<K, V>? onRemove,
+  }) {
     final notSharedMap = _notSharedMap;
-    return notSharedMap?.id == id
+    var o = notSharedMap?.id == id
         ? notSharedMap as SharedMap<K, V>
         : NotSharedMap<K, V>();
+
+    o.setCallbacksDynamic<K, V>(onPut: onPut, onRemove: onRemove);
+
+    return o;
   }
 
   NotSharedStoreReference? _sharedReference;
@@ -41,6 +49,38 @@ class NotSharedMap<K, V> implements SharedMapSync<K, V> {
   final Map<K, V> _entries = {};
 
   NotSharedMap() : id = 'NotSharedMap#${++_notSharedIDCount}';
+
+  @override
+  SharedMapEntryCallback<K, V>? onPut;
+
+  @override
+  SharedMapEntryCallback<K, V>? onRemove;
+
+  @override
+  void setCallbacks(
+      {SharedMapEntryCallback<K, V>? onPut,
+      SharedMapEntryCallback<K, V>? onRemove}) {
+    if (onPut != null) {
+      this.onPut ??= onPut;
+    }
+
+    if (onRemove != null) {
+      this.onRemove ??= onRemove;
+    }
+  }
+
+  @override
+  void setCallbacksDynamic<K1, V1>(
+      {SharedMapEntryCallback<K1, V1>? onPut,
+      SharedMapEntryCallback<K1, V1>? onRemove}) {
+    if (onPut is SharedMapEntryCallback<K, V>) {
+      this.onPut ??= onPut as SharedMapEntryCallback<K, V>;
+    }
+
+    if (onRemove is SharedMapEntryCallback<K, V>) {
+      this.onRemove ??= onRemove as SharedMapEntryCallback<K, V>;
+    }
+  }
 
   late final _NotSharedMapCache<K, V> _cached = _NotSharedMapCache(this);
 
@@ -72,7 +112,12 @@ class NotSharedMap<K, V> implements SharedMapSync<K, V> {
       _entries.remove(key);
       return null;
     }
-    return _entries[key] = value;
+
+    _entries[key] = value;
+
+    onPut.callback(key, value);
+
+    return value;
   }
 
   @override
@@ -82,14 +127,25 @@ class NotSharedMap<K, V> implements SharedMapSync<K, V> {
       if (absentValue == null) {
         return null;
       }
-      return _entries[key] = absentValue;
+
+      _entries[key] = absentValue;
+
+      onPut.callback(key, absentValue);
+
+      return absentValue;
     } else {
       return prev;
     }
   }
 
   @override
-  V? remove(K key) => _entries.remove(key);
+  V? remove(K key) {
+    var v = _entries.remove(key);
+    if (v != null) {
+      onRemove.callback(key, v);
+    }
+    return v;
+  }
 
   @override
   List<V?> removeAll(List<K> keys) {
@@ -100,7 +156,20 @@ class NotSharedMap<K, V> implements SharedMapSync<K, V> {
   @override
   int clear() {
     var lng = _entries.length;
+
+    List<MapEntry<K, V>>? removedEntries;
+
+    final onRemove = this.onRemove;
+    if (onRemove != null) {
+      removedEntries = _entries.entries.toList();
+    }
+
     _entries.clear();
+
+    if (removedEntries != null) {
+      onRemove!.callbackAll(removedEntries);
+    }
+
     return lng;
   }
 
@@ -130,6 +199,32 @@ class _NotSharedMapCache<K, V> implements SharedMapCached<K, V> {
   final Duration timeout;
 
   _NotSharedMapCache(this._sharedMap) : timeout = Duration.zero;
+
+  @override
+  SharedMapEntryCallback<K, V>? get onPut => _sharedMap.onPut;
+
+  @override
+  set onPut(SharedMapEntryCallback<K, V>? callback) =>
+      _sharedMap.onPut = callback;
+
+  @override
+  SharedMapEntryCallback<K, V>? get onRemove => _sharedMap.onRemove;
+
+  @override
+  set onRemove(SharedMapEntryCallback<K, V>? callback) =>
+      _sharedMap.onRemove = callback;
+
+  @override
+  void setCallbacks(
+          {SharedMapEntryCallback<K, V>? onPut,
+          SharedMapEntryCallback<K, V>? onRemove}) =>
+      _sharedMap.setCallbacks(onPut: onPut, onRemove: onRemove);
+
+  @override
+  void setCallbacksDynamic<K1, V1>(
+          {SharedMapEntryCallback<K1, V1>? onPut,
+          SharedMapEntryCallback<K1, V1>? onRemove}) =>
+      _sharedMap.setCallbacksDynamic(onPut: onPut, onRemove: onRemove);
 
   @override
   String get id => _sharedMap.id;
