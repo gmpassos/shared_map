@@ -65,6 +65,10 @@ class SharedStoreIsolateServer extends SharedStoreIsolate {
   }) {
     var sharedMap = _sharedMaps[id];
     if (sharedMap != null) {
+      if (sharedMap is! SharedMap<K, V>) {
+        throw StateError(
+            "[$this] Can't cast `sharedMap` to `SharedMap<$K, $V>`: $sharedMap");
+      }
       return sharedMap as SharedMap<K, V>;
     }
 
@@ -129,7 +133,7 @@ class SharedStoreIsolateClient extends SharedStoreIsolate {
     var msgID = ++_msgIDCounter;
     var completer = _waitingResponse[msgID] = Completer();
 
-    _CallCasted<K, V> callCasted = _buildCallCasted();
+    _CallCasted<K, V> callCasted = _buildCallCasted<K, V>();
 
     _serverPort.send([_receivePort.sendPort, msgID, id, callCasted]);
 
@@ -144,8 +148,8 @@ class SharedStoreIsolateClient extends SharedStoreIsolate {
     });
   }
 
-  /// Generates the lambda [Function] that will passed to the
-  /// [SharedMapIsolateServer] to allow correct casted call to [getSharedMap].
+  /// Generates the lambda [Function] that will be passed to the
+  /// [SharedMapIsolateServer] to allow the correct casted call to [getSharedMap]`<K,V>()`.
   _CallCasted<K, V> _buildCallCasted<K, V>() => (f) => f<K, V>();
 
   @override
@@ -370,7 +374,7 @@ class SharedMapIsolateServer<K, V> extends SharedMapIsolate<K, V>
 
   @override
   String toString() =>
-      'SharedMapIsolateServer[$id@${sharedStore.id}]{entries: ${_entries.length}';
+      'SharedMapIsolateServer<$K,$V>[$id@${sharedStore.id}]{entries: ${_entries.length}}';
 }
 
 class SharedMapIsolateClient<K, V> extends SharedMapIsolate<K, V>
@@ -532,7 +536,7 @@ class SharedMapIsolateClient<K, V> extends SharedMapIsolate<K, V>
       SharedMapReferenceIsolate(id, sharedStore.sharedReference(), _serverPort);
 
   @override
-  String toString() => 'SharedMapIsolateClient[$id@${sharedStore.id}]';
+  String toString() => 'SharedMapIsolateClient<$K,$V>[$id@${sharedStore.id}]';
 }
 
 class SharedStoreReferenceIsolate extends SharedStoreReference {

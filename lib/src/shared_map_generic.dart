@@ -172,6 +172,11 @@ class SharedMapGeneric<K, V> implements SharedMapSync<K, V> {
 
   @override
   SharedMapCached<K, V> cached({Duration? timeout}) => _cached;
+
+  @override
+  String toString() {
+    return 'SharedMapGeneric<$K,$V>[$id@${sharedStore.id}]{entries: ${_entries.length}}';
+  }
 }
 
 /// A fake implementation (not cached) of [SharedMapCached].
@@ -266,7 +271,7 @@ class SharedMapCacheGeneric<K, V> implements SharedMapCached<K, V> {
 
   @override
   String toString() =>
-      'SharedMapCachedGeneric[$id@${sharedStore.id}]{timeout: $timeout}->$_sharedMap';
+      'SharedMapCachedGeneric<$K,$V>[$id@${sharedStore.id}]{timeout: $timeout}->$_sharedMap';
 }
 
 class SharedStoreReferenceGeneric extends SharedStoreReference {

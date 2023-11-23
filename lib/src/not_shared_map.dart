@@ -178,6 +178,11 @@ class NotSharedMap<K, V> implements SharedMapSync<K, V> {
   @override
   SharedMapReference sharedReference() =>
       _sharedReference ??= NotSharedMapReference(this);
+
+  @override
+  String toString() {
+    return 'NotSharedMap<$K,$V>[$id@${sharedStore.id}]{entries: ${_entries.length}}';
+  }
 }
 
 class NotSharedStoreReference extends SharedStoreReference {

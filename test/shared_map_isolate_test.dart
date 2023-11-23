@@ -218,7 +218,7 @@ void main() {
       expect(await m1.clear(), equals(0));
     });
 
-    test('basic', () async {
+    test('basic 1', () async {
       var store2 = SharedStore('t2');
 
       var m2 = await store2.getSharedMap<String, int>('m2');
@@ -241,6 +241,74 @@ void main() {
 
       final sharedStoreReference = store2.sharedReference();
       final sharedMapID = m2.id;
+
+      var va3 = await Isolate.run<int?>(() async {
+        var store3 = SharedStore.fromSharedReference(sharedStoreReference);
+        var m3 = await store3.getSharedMap(sharedMapID);
+        var va3 = await m3?.get('a');
+        return va3;
+      });
+
+      expect(va3, equals(11));
+
+      expect(events, equals([('put', 'a', 11)]));
+
+      var va4 = await Isolate.run<int?>(() async {
+        var store4 = SharedStore.fromSharedReference(sharedStoreReference);
+        var m4 = await store4.getSharedMap(sharedMapID);
+        var va4 = await m4?.put('a', 111);
+        return va4;
+      });
+
+      expect(va4, equals(111));
+
+      expect(events, equals([('put', 'a', 11), ('put', 'a', 111)]));
+
+      var va5 = await Isolate.run<int?>(() async {
+        var store5 = SharedStore.fromSharedReference(sharedStoreReference);
+        var m5 = await store5.getSharedMap(sharedMapID);
+        var va5 = await m5?.remove('a');
+        return va5;
+      });
+
+      expect(va5, equals(111));
+
+      expect(events,
+          equals([('put', 'a', 11), ('put', 'a', 111), ('rm', 'a', 111)]));
+    });
+
+    test('basic 2', () async {
+      var store2 = SharedStore('t3');
+
+      final sharedStoreReference = store2.sharedReference();
+      final sharedMapID = 'm2';
+
+      var va0 = await Isolate.run<int?>(() async {
+        var store3 = SharedStore.fromSharedReference(sharedStoreReference);
+        var m3 = await store3.getSharedMap<String, int>(sharedMapID);
+        var va0 = await m3?.get('a');
+        return va0;
+      });
+
+      expect(va0, isNull);
+
+      var m2 = await store2.getSharedMap<String, int>(sharedMapID);
+      expect(m2, isNotNull);
+
+      var events = <(String, String, int?)>[];
+
+      m2!.onPut = (k, v) => events.add(('put', k, v));
+      m2.onRemove = (k, v) => events.add(('rm', k, v));
+
+      expect(events, equals([]));
+
+      var va1 = await m2.get('a');
+      expect(va1, isNull);
+
+      var va2 = await m2.put('a', 11);
+      expect(va2, equals(11));
+
+      expect(events, equals([('put', 'a', 11)]));
 
       var va3 = await Isolate.run<int?>(() async {
         var store3 = SharedStore.fromSharedReference(sharedStoreReference);

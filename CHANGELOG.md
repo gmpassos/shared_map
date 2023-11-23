@@ -7,6 +7,8 @@
 - `SharedStoreIsolateServer`:
   - Fix  call to `getSharedMap<K,V>()` with correct `K` and `V` casting when requested by `SharedStoreIsolateClient`.
 
+- Improve `SharedMap.toString` implementations.
+
 ## 1.0.9
 
 - `SharedMap`:
