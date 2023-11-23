@@ -103,6 +103,15 @@ extension SharedMapEntryCallbackExtension<K, V>
     if (f == null) return;
     f(k, v);
   }
+
+  void callbackAll<R>(List<MapEntry<K, V>> entries) {
+    var f = this;
+    if (f == null) return;
+
+    for (var e in entries) {
+      f(e.key, e.value);
+    }
+  }
 }
 
 /// Base class for [SharedMap] implementations.

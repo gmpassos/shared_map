@@ -272,10 +272,7 @@ class SharedMapIsolateServer<K, V> extends SharedMapIsolate<K, V>
 
     _entries[key] = value;
 
-    final onPut = this.onPut;
-    if (onPut != null) {
-      onPut(key, value);
-    }
+    onPut.callback(key, value);
 
     return value;
   }
@@ -290,10 +287,7 @@ class SharedMapIsolateServer<K, V> extends SharedMapIsolate<K, V>
 
       _entries[key] = absentValue;
 
-      final onPut = this.onPut;
-      if (onPut != null) {
-        onPut(key, absentValue);
-      }
+      onPut.callback(key, absentValue);
 
       return absentValue;
     } else {
@@ -305,10 +299,7 @@ class SharedMapIsolateServer<K, V> extends SharedMapIsolate<K, V>
   V? remove(K key) {
     var v = _entries.remove(key);
     if (v != null) {
-      final onRemove = this.onRemove;
-      if (onRemove != null) {
-        onRemove(key, v);
-      }
+      onRemove.callback(key, v);
     }
     return v;
   }
@@ -346,10 +337,8 @@ class SharedMapIsolateServer<K, V> extends SharedMapIsolate<K, V>
 
     _entries.clear();
 
-    if (onRemove != null) {
-      for (var e in removedEntries!) {
-        onRemove(e.key, e.value);
-      }
+    if (removedEntries != null) {
+      onRemove!.callbackAll(removedEntries);
     }
 
     return lng;
