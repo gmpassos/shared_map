@@ -119,16 +119,16 @@ abstract class SharedMap<K, V> extends SharedType {
   /// Optional callback for when [put] is called.
   ///
   /// - If running on the `Isolate` version, it will be triggered only on the "server" side.
-  OnSharedMapPut<K, V>? get onSharedMapPut;
+  OnSharedMapPut<K, V>? get onPut;
 
-  set onSharedMapPut(OnSharedMapPut<K, V>? callback);
+  set onPut(OnSharedMapPut<K, V>? callback);
 
   /// Optional callback for when [remove] is called.
   ///
   /// - If running on the `Isolate` version, it will be triggered only on the "server" side.
-  OnSharedMapRemove<K, V>? get onSharedMapRemove;
+  OnSharedMapRemove<K, V>? get onRemove;
 
-  set onSharedMapRemove(OnSharedMapRemove<K, V>? callback);
+  set onRemove(OnSharedMapRemove<K, V>? callback);
 
   /// Returns the value of [key].
   FutureOr<V?> get(K key);

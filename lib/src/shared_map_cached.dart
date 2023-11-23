@@ -18,19 +18,17 @@ class SharedMapCached<K, V> implements SharedMap<K, V> {
       : timeout = timeout ??= defaultTimeout;
 
   @override
-  OnSharedMapPut<K, V>? get onSharedMapPut => _sharedMap.onSharedMapPut;
+  OnSharedMapPut<K, V>? get onPut => _sharedMap.onPut;
 
   @override
-  set onSharedMapPut(OnSharedMapPut<K, V>? callback) =>
-      _sharedMap.onSharedMapPut = callback;
+  set onPut(OnSharedMapPut<K, V>? callback) => _sharedMap.onPut = callback;
 
   @override
-  OnSharedMapRemove<K, V>? get onSharedMapRemove =>
-      _sharedMap.onSharedMapRemove;
+  OnSharedMapRemove<K, V>? get onRemove => _sharedMap.onRemove;
 
   @override
-  set onSharedMapRemove(OnSharedMapRemove<K, V>? callback) =>
-      _sharedMap.onSharedMapRemove = callback;
+  set onRemove(OnSharedMapRemove<K, V>? callback) =>
+      _sharedMap.onRemove = callback;
 
   @override
   SharedStore get sharedStore => _sharedMap.sharedStore;

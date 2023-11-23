@@ -1,7 +1,7 @@
 ## 1.0.9
 
 - `SharedMap`:
-  - added `onSharedMapPut` and `onSharedMapRemove`.
+  - added `onPut` and `onRemove`.
 
 ## 1.0.8
 

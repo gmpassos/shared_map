@@ -134,10 +134,10 @@ abstract class SharedMapIsolate<K, V> extends SharedIsolate
   SharedMapIsolate(this.sharedStore, super.id);
 
   @override
-  OnSharedMapPut<K, V>? onSharedMapPut;
+  OnSharedMapPut<K, V>? onPut;
 
   @override
-  OnSharedMapRemove<K, V>? onSharedMapRemove;
+  OnSharedMapRemove<K, V>? onRemove;
 }
 
 class SharedMapIsolateServer<K, V> extends SharedMapIsolate<K, V>
@@ -228,9 +228,9 @@ class SharedMapIsolateServer<K, V> extends SharedMapIsolate<K, V>
     }
     _entries[key] = value;
 
-    final onSharedMapPut = this.onSharedMapPut;
-    if (onSharedMapPut != null) {
-      onSharedMapPut(key, value);
+    final onPut = this.onPut;
+    if (onPut != null) {
+      onPut(key, value);
     }
 
     return value;
@@ -246,9 +246,9 @@ class SharedMapIsolateServer<K, V> extends SharedMapIsolate<K, V>
 
       _entries[key] = absentValue;
 
-      final onSharedMapPut = this.onSharedMapPut;
-      if (onSharedMapPut != null) {
-        onSharedMapPut(key, absentValue);
+      final onPut = this.onPut;
+      if (onPut != null) {
+        onPut(key, absentValue);
       }
 
       return absentValue;
@@ -261,9 +261,9 @@ class SharedMapIsolateServer<K, V> extends SharedMapIsolate<K, V>
   V? remove(K key) {
     var v = _entries.remove(key);
     if (v != null) {
-      final onSharedMapRemove = this.onSharedMapRemove;
-      if (onSharedMapRemove != null) {
-        onSharedMapRemove(key, v);
+      final onRemove = this.onRemove;
+      if (onRemove != null) {
+        onRemove(key, v);
       }
     }
     return v;
@@ -295,16 +295,16 @@ class SharedMapIsolateServer<K, V> extends SharedMapIsolate<K, V>
 
     List<MapEntry<K, V>>? removedEntries;
 
-    final onSharedMapRemove = this.onSharedMapRemove;
-    if (onSharedMapRemove != null) {
+    final onRemove = this.onRemove;
+    if (onRemove != null) {
       removedEntries = _entries.entries.toList();
     }
 
     _entries.clear();
 
-    if (onSharedMapRemove != null) {
+    if (onRemove != null) {
       for (var e in removedEntries!) {
-        onSharedMapRemove(e.key, e.value);
+        onRemove(e.key, e.value);
       }
     }
 

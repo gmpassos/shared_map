@@ -174,8 +174,8 @@ void main() {
 
       var events = <(String, String, int?)>[];
 
-      m2.onSharedMapPut = (k, v) => events.add(('put', k, v));
-      m2.onSharedMapRemove = (k, v) => events.add(('rm', k, v));
+      m2.onPut = (k, v) => events.add(('put', k, v));
+      m2.onRemove = (k, v) => events.add(('rm', k, v));
 
       expect(events, isEmpty);
 

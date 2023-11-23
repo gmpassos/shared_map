@@ -43,10 +43,10 @@ class NotSharedMap<K, V> implements SharedMapSync<K, V> {
   NotSharedMap() : id = 'NotSharedMap#${++_notSharedIDCount}';
 
   @override
-  OnSharedMapPut<K, V>? onSharedMapPut;
+  OnSharedMapPut<K, V>? onPut;
 
   @override
-  OnSharedMapRemove<K, V>? onSharedMapRemove;
+  OnSharedMapRemove<K, V>? onRemove;
 
   late final _NotSharedMapCache<K, V> _cached = _NotSharedMapCache(this);
 
@@ -81,9 +81,9 @@ class NotSharedMap<K, V> implements SharedMapSync<K, V> {
 
     _entries[key] = value;
 
-    final onSharedMapPut = this.onSharedMapPut;
-    if (onSharedMapPut != null) {
-      onSharedMapPut(key, value);
+    final onPut = this.onPut;
+    if (onPut != null) {
+      onPut(key, value);
     }
 
     return value;
@@ -99,9 +99,9 @@ class NotSharedMap<K, V> implements SharedMapSync<K, V> {
 
       _entries[key] = absentValue;
 
-      final onSharedMapPut = this.onSharedMapPut;
-      if (onSharedMapPut != null) {
-        onSharedMapPut(key, absentValue);
+      final onPut = this.onPut;
+      if (onPut != null) {
+        onPut(key, absentValue);
       }
 
       return absentValue;
@@ -114,9 +114,9 @@ class NotSharedMap<K, V> implements SharedMapSync<K, V> {
   V? remove(K key) {
     var v = _entries.remove(key);
     if (v != null) {
-      final onSharedMapRemove = this.onSharedMapRemove;
-      if (onSharedMapRemove != null) {
-        onSharedMapRemove(key, v);
+      final onRemove = this.onRemove;
+      if (onRemove != null) {
+        onRemove(key, v);
       }
     }
     return v;
@@ -134,16 +134,16 @@ class NotSharedMap<K, V> implements SharedMapSync<K, V> {
 
     List<MapEntry<K, V>>? removedEntries;
 
-    final onSharedMapRemove = this.onSharedMapRemove;
-    if (onSharedMapRemove != null) {
+    final onRemove = this.onRemove;
+    if (onRemove != null) {
       removedEntries = _entries.entries.toList();
     }
 
     _entries.clear();
 
-    if (onSharedMapRemove != null) {
+    if (onRemove != null) {
       for (var e in removedEntries!) {
-        onSharedMapRemove(e.key, e.value);
+        onRemove(e.key, e.value);
       }
     }
 
@@ -178,19 +178,17 @@ class _NotSharedMapCache<K, V> implements SharedMapCached<K, V> {
   _NotSharedMapCache(this._sharedMap) : timeout = Duration.zero;
 
   @override
-  OnSharedMapPut<K, V>? get onSharedMapPut => _sharedMap.onSharedMapPut;
+  OnSharedMapPut<K, V>? get onPut => _sharedMap.onPut;
 
   @override
-  set onSharedMapPut(OnSharedMapPut<K, V>? callback) =>
-      _sharedMap.onSharedMapPut = callback;
+  set onPut(OnSharedMapPut<K, V>? callback) => _sharedMap.onPut = callback;
 
   @override
-  OnSharedMapRemove<K, V>? get onSharedMapRemove =>
-      _sharedMap.onSharedMapRemove;
+  OnSharedMapRemove<K, V>? get onRemove => _sharedMap.onRemove;
 
   @override
-  set onSharedMapRemove(OnSharedMapRemove<K, V>? callback) =>
-      _sharedMap.onSharedMapRemove = callback;
+  set onRemove(OnSharedMapRemove<K, V>? callback) =>
+      _sharedMap.onRemove = callback;
 
   @override
   String get id => _sharedMap.id;
