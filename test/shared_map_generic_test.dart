@@ -163,6 +163,48 @@ void main() {
       expect(await _asFutureOr(m1).clear(), equals(0));
     });
 
+    test('onSharedMapPut + onSharedMapRemove', () async {
+      var store2 = SharedStoreGeneric('t2');
+
+      expect(store2.id, equals('t2'));
+
+      var m2 = await store2.getSharedMap<String, int>('m2');
+      expect(m2, isNotNull);
+      expect(m2!.id, equals('m2'));
+
+      var events = <(String, String, int?)>[];
+
+      m2.onSharedMapPut = (k, v) => events.add(('put', k, v));
+      m2.onSharedMapRemove = (k, v) => events.add(('rm', k, v));
+
+      expect(events, isEmpty);
+
+      var va1 = await m2.get('a');
+      expect(va1, isNull);
+
+      expect(events, isEmpty);
+
+      var va2 = m2.put('a', 11);
+      expect(va2, equals(11));
+
+      expect(events, equals([('put', 'a', 11)]));
+
+      var va3 = m2.putIfAbsent('a', 111);
+      expect(va3, equals(11));
+
+      expect(events, equals([('put', 'a', 11)]));
+
+      var va4 = m2.put('a', 111);
+      expect(va4, equals(111));
+
+      expect(events, equals([('put', 'a', 11), ('put', 'a', 111)]));
+
+      expect(m2.remove("a"), equals(111));
+
+      expect(events,
+          equals([('put', 'a', 11), ('put', 'a', 111), ('rm', 'a', 111)]));
+    });
+
     test('newUUID', () async {
       var store1 = SharedStoreGeneric(SharedType.newUUID());
 

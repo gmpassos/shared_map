@@ -90,6 +90,9 @@ enum SharedMapOperation {
   where,
 }
 
+typedef OnSharedMapPut<K, V> = void Function(K key, V? value);
+typedef OnSharedMapRemove<K, V> = void Function(K key, V? value);
+
 /// Base class for [SharedMap] implementations.
 abstract class SharedMap<K, V> extends SharedType {
   /// Creates a [SharedMap] with [id].
@@ -112,6 +115,20 @@ abstract class SharedMap<K, V> extends SharedType {
 
   /// The [SharedStore] where this instance is stored/handled.
   SharedStore get sharedStore;
+
+  /// Optional callback for when [put] is called.
+  ///
+  /// - If running on the `Isolate` version, it will be triggered only on the "server" side.
+  OnSharedMapPut<K, V>? get onSharedMapPut;
+
+  set onSharedMapPut(OnSharedMapPut<K, V>? callback);
+
+  /// Optional callback for when [remove] is called.
+  ///
+  /// - If running on the `Isolate` version, it will be triggered only on the "server" side.
+  OnSharedMapRemove<K, V>? get onSharedMapRemove;
+
+  set onSharedMapRemove(OnSharedMapRemove<K, V>? callback);
 
   /// Returns the value of [key].
   FutureOr<V?> get(K key);

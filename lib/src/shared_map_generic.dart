@@ -40,6 +40,12 @@ class SharedMapGeneric<K, V> implements SharedMapSync<K, V> {
   SharedMapGeneric(this.sharedStore, this.id);
 
   @override
+  OnSharedMapPut<K, V>? onSharedMapPut;
+
+  @override
+  OnSharedMapRemove<K, V>? onSharedMapRemove;
+
+  @override
   V? get(K key) {
     return _entries[key];
   }
@@ -47,10 +53,18 @@ class SharedMapGeneric<K, V> implements SharedMapSync<K, V> {
   @override
   V? put(K key, V? value) {
     if (value == null) {
-      _entries.remove(key);
+      remove(key);
       return null;
     }
-    return _entries[key] = value;
+
+    _entries[key] = value;
+
+    final onSharedMapPut = this.onSharedMapPut;
+    if (onSharedMapPut != null) {
+      onSharedMapPut(key, value);
+    }
+
+    return value;
   }
 
   @override
@@ -60,20 +74,35 @@ class SharedMapGeneric<K, V> implements SharedMapSync<K, V> {
       if (absentValue == null) {
         return null;
       }
-      return _entries[key] = absentValue;
+
+      _entries[key] = absentValue;
+
+      final onSharedMapPut = this.onSharedMapPut;
+      if (onSharedMapPut != null) {
+        onSharedMapPut(key, absentValue);
+      }
+
+      return absentValue;
     } else {
       return prev;
     }
   }
 
   @override
-  V? remove(K key) => _entries.remove(key);
+  V? remove(K key) {
+    var v = _entries.remove(key);
+    if (v != null) {
+      final onSharedMapRemove = this.onSharedMapRemove;
+      if (onSharedMapRemove != null) {
+        onSharedMapRemove(key, v);
+      }
+    }
+    return v;
+  }
 
   @override
-  List<V?> removeAll(List<K> keys) {
-    var values = keys.map((k) => _entries.remove(k)).toList();
-    return values;
-  }
+  List<V?> removeAll(List<K> keys) =>
+      keys.map((k) => _entries.remove(k)).toList();
 
   @override
   List<K> keys() => _entries.keys.toList();
@@ -94,7 +123,22 @@ class SharedMapGeneric<K, V> implements SharedMapSync<K, V> {
   @override
   int clear() {
     var lng = _entries.length;
+
+    List<MapEntry<K, V>>? removedEntries;
+
+    final onSharedMapRemove = this.onSharedMapRemove;
+    if (onSharedMapRemove != null) {
+      removedEntries = _entries.entries.toList();
+    }
+
     _entries.clear();
+
+    if (onSharedMapRemove != null) {
+      for (var e in removedEntries!) {
+        onSharedMapRemove(e.key, e.value);
+      }
+    }
+
     return lng;
   }
 
@@ -115,6 +159,21 @@ class SharedMapCacheGeneric<K, V> implements SharedMapCached<K, V> {
   final Duration timeout;
 
   SharedMapCacheGeneric(this._sharedMap) : timeout = Duration.zero;
+
+  @override
+  OnSharedMapPut<K, V>? get onSharedMapPut => _sharedMap.onSharedMapPut;
+
+  @override
+  set onSharedMapPut(OnSharedMapPut<K, V>? callback) =>
+      _sharedMap.onSharedMapPut = callback;
+
+  @override
+  OnSharedMapRemove<K, V>? get onSharedMapRemove =>
+      _sharedMap.onSharedMapRemove;
+
+  @override
+  set onSharedMapRemove(OnSharedMapRemove<K, V>? callback) =>
+      _sharedMap.onSharedMapRemove = callback;
 
   @override
   String get id => _sharedMap.id;

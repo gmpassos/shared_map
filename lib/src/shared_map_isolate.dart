@@ -132,6 +132,12 @@ abstract class SharedMapIsolate<K, V> extends SharedIsolate
   final SharedStore sharedStore;
 
   SharedMapIsolate(this.sharedStore, super.id);
+
+  @override
+  OnSharedMapPut<K, V>? onSharedMapPut;
+
+  @override
+  OnSharedMapRemove<K, V>? onSharedMapRemove;
 }
 
 class SharedMapIsolateServer<K, V> extends SharedMapIsolate<K, V>
@@ -153,64 +159,54 @@ class SharedMapIsolateServer<K, V> extends SharedMapIsolate<K, V>
         case SharedMapOperation.get:
           {
             var key = m[3];
-            response = _entries[key];
+            response = get(key);
           }
         case SharedMapOperation.put:
           {
             var key = m[3];
             var putValue = m[4];
-            response = _entries[key] = putValue;
+            response = put(key, putValue);
           }
         case SharedMapOperation.putIfAbsent:
           {
             var key = m[3];
             var putValue = m[4];
-
-            var prev = _entries[key];
-            if (prev == null) {
-              response = _entries[key] = putValue;
-            } else {
-              response = prev;
-            }
+            response = putIfAbsent(key, putValue);
           }
         case SharedMapOperation.remove:
           {
             var key = m[3];
-            response = _entries.remove(key);
+            response = remove(key);
           }
         case SharedMapOperation.removeAll:
           {
-            var keys = m[3] as List;
-            var values = keys.map((k) => _entries.remove(k)).toList();
-            response = values;
+            var keys = m[3] as List<K>;
+            response = removeAll(keys);
           }
         case SharedMapOperation.keys:
           {
-            response = _entries.keys.toList();
+            response = keys();
           }
         case SharedMapOperation.allValues:
           {
-            response = _entries.values.toList();
+            response = values();
           }
         case SharedMapOperation.entries:
           {
-            response = _entries.entries.toList();
+            response = entries();
           }
         case SharedMapOperation.length:
           {
-            response = _entries.length;
+            response = length();
           }
         case SharedMapOperation.clear:
           {
-            var lng = _entries.length;
-            _entries.clear();
-            response = lng;
+            response = clear();
           }
         case SharedMapOperation.where:
           {
             var test = m[3];
-            response =
-                _entries.entries.where((e) => test(e.key, e.value)).toList();
+            response = where(test);
           }
       }
 
@@ -230,7 +226,14 @@ class SharedMapIsolateServer<K, V> extends SharedMapIsolate<K, V>
       _entries.remove(key);
       return null;
     }
-    return _entries[key] = value;
+    _entries[key] = value;
+
+    final onSharedMapPut = this.onSharedMapPut;
+    if (onSharedMapPut != null) {
+      onSharedMapPut(key, value);
+    }
+
+    return value;
   }
 
   @override
@@ -240,14 +243,31 @@ class SharedMapIsolateServer<K, V> extends SharedMapIsolate<K, V>
       if (absentValue == null) {
         return null;
       }
-      return _entries[key] = absentValue;
+
+      _entries[key] = absentValue;
+
+      final onSharedMapPut = this.onSharedMapPut;
+      if (onSharedMapPut != null) {
+        onSharedMapPut(key, absentValue);
+      }
+
+      return absentValue;
     } else {
       return prev;
     }
   }
 
   @override
-  V? remove(K key) => _entries.remove(key);
+  V? remove(K key) {
+    var v = _entries.remove(key);
+    if (v != null) {
+      final onSharedMapRemove = this.onSharedMapRemove;
+      if (onSharedMapRemove != null) {
+        onSharedMapRemove(key, v);
+      }
+    }
+    return v;
+  }
 
   @override
   List<V?> removeAll(List<K> keys) =>
@@ -272,7 +292,22 @@ class SharedMapIsolateServer<K, V> extends SharedMapIsolate<K, V>
   @override
   int clear() {
     var lng = _entries.length;
+
+    List<MapEntry<K, V>>? removedEntries;
+
+    final onSharedMapRemove = this.onSharedMapRemove;
+    if (onSharedMapRemove != null) {
+      removedEntries = _entries.entries.toList();
+    }
+
     _entries.clear();
+
+    if (onSharedMapRemove != null) {
+      for (var e in removedEntries!) {
+        onSharedMapRemove(e.key, e.value);
+      }
+    }
+
     return lng;
   }
 
