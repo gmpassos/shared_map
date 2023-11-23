@@ -17,8 +17,14 @@ class SharedStoreGeneric implements SharedStore {
   final Map<String, SharedMapGeneric> _sharedMaps = {};
 
   @override
-  FutureOr<SharedMap<K, V>?> getSharedMap<K, V>(String id) {
-    return createSharedMap(sharedStore: this, id: id);
+  FutureOr<SharedMap<K, V>?> getSharedMap<K, V>(
+    String id, {
+    SharedMapEntryCallback<K, V>? onPut,
+    SharedMapEntryCallback<K, V>? onRemove,
+  }) {
+    var o = createSharedMap<K, V>(sharedStore: this, id: id);
+    o.setCallbacksDynamic<K, V>(onPut: onPut, onRemove: onRemove);
+    return o;
   }
 
   @override
@@ -41,10 +47,36 @@ class SharedMapGeneric<K, V> implements SharedMapSync<K, V> {
   SharedMapGeneric(this.sharedStore, this.id);
 
   @override
-  OnSharedMapPut<K, V>? onPut;
+  SharedMapEntryCallback<K, V>? onPut;
 
   @override
-  OnSharedMapRemove<K, V>? onRemove;
+  SharedMapEntryCallback<K, V>? onRemove;
+
+  @override
+  void setCallbacks(
+      {SharedMapEntryCallback<K, V>? onPut,
+      SharedMapEntryCallback<K, V>? onRemove}) {
+    if (onPut != null) {
+      this.onPut ??= onPut;
+    }
+
+    if (onRemove != null) {
+      this.onRemove ??= onRemove;
+    }
+  }
+
+  @override
+  void setCallbacksDynamic<K1, V1>(
+      {SharedMapEntryCallback<K1, V1>? onPut,
+      SharedMapEntryCallback<K1, V1>? onRemove}) {
+    if (onPut is SharedMapEntryCallback<K, V>) {
+      this.onPut ??= onPut as SharedMapEntryCallback<K, V>;
+    }
+
+    if (onRemove is SharedMapEntryCallback<K, V>) {
+      this.onRemove ??= onRemove as SharedMapEntryCallback<K, V>;
+    }
+  }
 
   @override
   V? get(K key) {
@@ -162,17 +194,30 @@ class SharedMapCacheGeneric<K, V> implements SharedMapCached<K, V> {
   SharedMapCacheGeneric(this._sharedMap) : timeout = Duration.zero;
 
   @override
-  OnSharedMapPut<K, V>? get onPut => _sharedMap.onPut;
+  SharedMapEntryCallback<K, V>? get onPut => _sharedMap.onPut;
 
   @override
-  set onPut(OnSharedMapPut<K, V>? callback) => _sharedMap.onPut = callback;
+  set onPut(SharedMapEntryCallback<K, V>? callback) =>
+      _sharedMap.onPut = callback;
 
   @override
-  OnSharedMapRemove<K, V>? get onRemove => _sharedMap.onRemove;
+  SharedMapEntryCallback<K, V>? get onRemove => _sharedMap.onRemove;
 
   @override
-  set onRemove(OnSharedMapRemove<K, V>? callback) =>
+  set onRemove(SharedMapEntryCallback<K, V>? callback) =>
       _sharedMap.onRemove = callback;
+
+  @override
+  void setCallbacks(
+          {SharedMapEntryCallback<K, V>? onPut,
+          SharedMapEntryCallback<K, V>? onRemove}) =>
+      _sharedMap.setCallbacks(onPut: onPut, onRemove: onRemove);
+
+  @override
+  void setCallbacksDynamic<K1, V1>(
+          {SharedMapEntryCallback<K1, V1>? onPut,
+          SharedMapEntryCallback<K1, V1>? onRemove}) =>
+      _sharedMap.setCallbacksDynamic(onPut: onPut, onRemove: onRemove);
 
   @override
   String get id => _sharedMap.id;

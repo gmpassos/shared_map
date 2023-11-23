@@ -56,13 +56,21 @@ class SharedStoreIsolateServer extends SharedStoreIsolate {
   }
 
   @override
-  FutureOr<SharedMap<K, V>?> getSharedMap<K, V>(String id) {
+  FutureOr<SharedMap<K, V>?> getSharedMap<K, V>(
+    String id, {
+    SharedMapEntryCallback<K, V>? onPut,
+    SharedMapEntryCallback<K, V>? onRemove,
+  }) {
     var sharedMap = _sharedMaps[id];
     if (sharedMap != null) {
       return sharedMap as SharedMap<K, V>;
     }
 
-    return createSharedMap(sharedStore: this, id: id);
+    var o = createSharedMap<K, V>(sharedStore: this, id: id);
+
+    o.setCallbacksDynamic<K, V>(onPut: onPut, onRemove: onRemove);
+
+    return o;
   }
 
   @override
@@ -102,10 +110,16 @@ class SharedStoreIsolateClient extends SharedStoreIsolate {
   final Map<int, Completer<SharedMapReferenceIsolate?>> _waitingResponse = {};
 
   @override
-  FutureOr<SharedMap<K, V>?> getSharedMap<K, V>(String id) {
+  FutureOr<SharedMap<K, V>?> getSharedMap<K, V>(
+    String id, {
+    SharedMapEntryCallback<K, V>? onPut,
+    SharedMapEntryCallback<K, V>? onRemove,
+  }) {
     var sharedMap = _sharedMaps[id];
     if (sharedMap != null) {
-      return sharedMap as SharedMap<K, V>;
+      var o = sharedMap as SharedMap<K, V>;
+      o.setCallbacksDynamic<K, V>(onPut: onPut, onRemove: onRemove);
+      return o;
     }
 
     var msgID = ++_msgIDCounter;
@@ -114,7 +128,9 @@ class SharedStoreIsolateClient extends SharedStoreIsolate {
     _serverPort.send([_receivePort.sendPort, msgID, id]);
 
     return completer.future.then((ref) {
-      return createSharedMap(sharedReference: ref!);
+      var o = createSharedMap<K, V>(sharedReference: ref!);
+      o.setCallbacksDynamic<K, V>(onPut: onPut, onRemove: onRemove);
+      return o;
     });
   }
 
@@ -135,10 +151,36 @@ abstract class SharedMapIsolate<K, V> extends SharedIsolate
   SharedMapIsolate(this.sharedStore, super.id);
 
   @override
-  OnSharedMapPut<K, V>? onPut;
+  SharedMapEntryCallback<K, V>? onPut;
 
   @override
-  OnSharedMapRemove<K, V>? onRemove;
+  SharedMapEntryCallback<K, V>? onRemove;
+
+  @override
+  void setCallbacks(
+      {SharedMapEntryCallback<K, V>? onPut,
+      SharedMapEntryCallback<K, V>? onRemove}) {
+    if (onPut != null) {
+      this.onPut ??= onPut;
+    }
+
+    if (onRemove != null) {
+      this.onRemove ??= onRemove;
+    }
+  }
+
+  @override
+  void setCallbacksDynamic<K1, V1>(
+      {SharedMapEntryCallback<K1, V1>? onPut,
+      SharedMapEntryCallback<K1, V1>? onRemove}) {
+    if (onPut is SharedMapEntryCallback<K, V>) {
+      this.onPut ??= onPut as SharedMapEntryCallback<K, V>;
+    }
+
+    if (onRemove is SharedMapEntryCallback<K, V>) {
+      this.onRemove ??= onRemove as SharedMapEntryCallback<K, V>;
+    }
+  }
 }
 
 class SharedMapIsolateServer<K, V> extends SharedMapIsolate<K, V>
@@ -227,6 +269,7 @@ class SharedMapIsolateServer<K, V> extends SharedMapIsolate<K, V>
       _entries.remove(key);
       return null;
     }
+
     _entries[key] = value;
 
     final onPut = this.onPut;

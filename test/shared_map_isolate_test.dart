@@ -287,13 +287,23 @@ void main() {
     test('basic', () async {
       final store1 = sharedStoreField.sharedStore;
 
-      var m1 = await store1.getSharedMap<String, int>(sharedMapID);
+      final events = <(String, String, int?)>[];
+
+      var m1 = await store1.getSharedMap<String, int>(
+        sharedMapID,
+        onPut: (k, v) => events.add(('put', k, v)),
+        onRemove: (k, v) => events.add(('rm', k, v)),
+      );
 
       var va1 = await m1!.get('a');
       expect(va1, isNull);
 
+      expect(events, isEmpty);
+
       var va2 = await m1.put('a', 11);
       expect(va2, equals(11));
+
+      expect(events, [('put', 'a', 11)]);
 
       var va3 = await Isolate.run<int?>(() async {
         final store2 = sharedStoreField.sharedStore;
@@ -342,11 +352,21 @@ void main() {
         return va5;
       });
 
+      expect(
+          events, [('put', 'a', 11), ('put', 'a', 111), ('put', 'a', 11111)]);
+
       expect(va5, equals(11111));
       expect(await m1.get('a'), equals(11111));
 
       expect(await m1.clear(), equals(1));
       expect(await m1.length(), equals(0));
+
+      expect(events, [
+        ('put', 'a', 11),
+        ('put', 'a', 111),
+        ('put', 'a', 11111),
+        ('rm', 'a', 11111)
+      ]);
     });
   });
 }

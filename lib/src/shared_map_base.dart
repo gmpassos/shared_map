@@ -67,7 +67,11 @@ abstract class SharedStore extends SharedType {
   }
 
   /// Returns a [SharedMap] with [id] in this [SharedStore] instance.
-  FutureOr<SharedMap<K, V>?> getSharedMap<K, V>(String id);
+  FutureOr<SharedMap<K, V>?> getSharedMap<K, V>(
+    String id, {
+    SharedMapEntryCallback<K, V>? onPut,
+    SharedMapEntryCallback<K, V>? onRemove,
+  });
 
   @override
   SharedStoreReference sharedReference();
@@ -90,8 +94,16 @@ enum SharedMapOperation {
   where,
 }
 
-typedef OnSharedMapPut<K, V> = void Function(K key, V? value);
-typedef OnSharedMapRemove<K, V> = void Function(K key, V? value);
+typedef SharedMapEntryCallback<K, V> = void Function(K key, V? value);
+
+extension SharedMapEntryCallbackExtension<K, V>
+    on SharedMapEntryCallback<K, V>? {
+  void callback<R>(K k, V v) {
+    var f = this;
+    if (f == null) return;
+    f(k, v);
+  }
+}
 
 /// Base class for [SharedMap] implementations.
 abstract class SharedMap<K, V> extends SharedType {
@@ -119,16 +131,24 @@ abstract class SharedMap<K, V> extends SharedType {
   /// Optional callback for when [put] is called.
   ///
   /// - If running on the `Isolate` version, it will be triggered only on the "server" side.
-  OnSharedMapPut<K, V>? get onPut;
+  SharedMapEntryCallback<K, V>? get onPut;
 
-  set onPut(OnSharedMapPut<K, V>? callback);
+  set onPut(SharedMapEntryCallback<K, V>? callback);
 
   /// Optional callback for when [remove] is called.
   ///
   /// - If running on the `Isolate` version, it will be triggered only on the "server" side.
-  OnSharedMapRemove<K, V>? get onRemove;
+  SharedMapEntryCallback<K, V>? get onRemove;
 
-  set onRemove(OnSharedMapRemove<K, V>? callback);
+  set onRemove(SharedMapEntryCallback<K, V>? callback);
+
+  void setCallbacks(
+      {SharedMapEntryCallback<K, V>? onPut,
+      SharedMapEntryCallback<K, V>? onRemove});
+
+  void setCallbacksDynamic<K1, V1>(
+      {SharedMapEntryCallback<K1, V1>? onPut,
+      SharedMapEntryCallback<K1, V1>? onRemove});
 
   /// Returns the value of [key].
   FutureOr<V?> get(K key);
@@ -446,28 +466,45 @@ class SharedStoreField extends SharedObject {
 }
 
 class SharedMapField<K, V> extends SharedObject {
-  factory SharedMapField.fromSharedMap(SharedMap<K, V> sharedMap) {
+  factory SharedMapField.fromSharedMap(
+    SharedMap<K, V> sharedMap, {
+    SharedMapEntryCallback<K, V>? onPut,
+    SharedMapEntryCallback<K, V>? onRemove,
+  }) {
     if (sharedMap is NotSharedMap) {
-      return NotSharedMapField(sharedMap as NotSharedMap<K, V>);
+      var notSharedMap = sharedMap as NotSharedMap<K, V>;
+
+      notSharedMap.setCallbacksDynamic<K, V>(onPut: onPut, onRemove: onRemove);
+
+      return NotSharedMapField(notSharedMap);
     }
 
-    var o =
-        SharedMapField<K, V>(sharedMap.id, sharedStore: sharedMap.sharedStore);
+    var o = SharedMapField<K, V>(
+      sharedMap.id,
+      sharedStore: sharedMap.sharedStore,
+      onPut: onPut,
+      onRemove: onRemove,
+    );
+
     if (!identical(sharedMap, o.sharedMap)) {
       throw StateError(
           "Parameter `sharedMap` instance is NOT the same of `SharedMapField.sharedMap`> $sharedMap != ${o.sharedMap}");
     }
+
     return o;
   }
 
-  factory SharedMapField.from(
-      {SharedMapField<K, V>? sharedMapField,
-      SharedMapReference? sharedMapReference,
-      SharedMap<K, V>? sharedMap,
-      String? sharedMapID,
-      SharedStoreField? sharedStoreField,
-      SharedStore? sharedStore,
-      String? sharedStoreID}) {
+  factory SharedMapField.from({
+    SharedMapField<K, V>? sharedMapField,
+    SharedMapReference? sharedMapReference,
+    SharedMap<K, V>? sharedMap,
+    String? sharedMapID,
+    SharedStoreField? sharedStoreField,
+    SharedStore? sharedStore,
+    String? sharedStoreID,
+    SharedMapEntryCallback<K, V>? onPut,
+    SharedMapEntryCallback<K, V>? onRemove,
+  }) {
     if (sharedMapField != null) {
       return sharedMapField;
     }
@@ -476,19 +513,28 @@ class SharedMapField<K, V> extends SharedObject {
       if (sharedMapReference is NotSharedMapReference) {
         sharedMap = sharedMapReference.notSharedMap as NotSharedMap<K, V>;
       } else {
-        sharedMap ??= SharedMap<K, V>.fromSharedReference(sharedMapReference);
+        sharedMap ??= SharedMap<K, V>.fromSharedReference(sharedMapReference)
+          ..setCallbacksDynamic<K, V>(onPut: onPut, onRemove: onRemove);
       }
     }
 
     if (sharedMap != null) {
-      return SharedMapField.fromSharedMap(sharedMap);
+      return SharedMapField.fromSharedMap(
+        sharedMap,
+        onPut: onPut,
+        onRemove: onRemove,
+      );
     }
 
     if (sharedMapID != null) {
-      return SharedMapField(sharedMapID,
-          sharedStoreField: sharedStoreField,
-          sharedStore: sharedStore,
-          sharedStoreID: sharedStoreID);
+      return SharedMapField(
+        sharedMapID,
+        sharedStoreField: sharedStoreField,
+        sharedStore: sharedStore,
+        sharedStoreID: sharedStoreID,
+        onPut: onPut,
+        onRemove: onRemove,
+      );
     }
 
     throw ArgumentError(
@@ -500,17 +546,23 @@ class SharedMapField<K, V> extends SharedObject {
   /// The global ID of the [sharedMap].
   final String sharedMapID;
 
-  SharedMapField(this.sharedMapID,
-      {SharedStoreField? sharedStoreField,
-      SharedStoreReference? sharedStoreReference,
-      SharedStore? sharedStore,
-      String? sharedStoreID})
-      : _sharedStoreField = SharedStoreField.from(
+  SharedMapField(
+    this.sharedMapID, {
+    SharedStoreField? sharedStoreField,
+    SharedStoreReference? sharedStoreReference,
+    SharedStore? sharedStore,
+    String? sharedStoreID,
+    SharedMapEntryCallback<K, V>? onPut,
+    SharedMapEntryCallback<K, V>? onRemove,
+  }) : _sharedStoreField = SharedStoreField.from(
             sharedStoreField: sharedStoreField,
             sharedStoreReference: sharedStoreReference,
             sharedStore: sharedStore,
             sharedStoreID: sharedStoreID) {
-    _setupInstanceFromConstructor();
+    _setupInstanceFromConstructor(
+      onPut: onPut,
+      onRemove: onRemove,
+    );
   }
 
   SharedStore get sharedStore => _sharedStoreField.sharedStore;
@@ -520,9 +572,15 @@ class SharedMapField<K, V> extends SharedObject {
   SharedMapReference? _sharedMapReference;
   Future<SharedMap<K, V>>? _resolvingSharedMap;
 
-  void _setupInstanceFromConstructor() {
+  void _setupInstanceFromConstructor({
+    SharedMapEntryCallback<K, V>? onPut,
+    SharedMapEntryCallback<K, V>? onRemove,
+  }) {
     assert(_sharedMapExpando[this] == null);
-    _resolveSharedMapFromStore();
+    _resolveSharedMapFromStore(
+      onPut: onPut,
+      onRemove: onRemove,
+    );
   }
 
   FutureOr<SharedMap<K, V>> _setupInstance() {
@@ -548,7 +606,10 @@ class SharedMapField<K, V> extends SharedObject {
     }
   }
 
-  FutureOr<SharedMap<K, V>> _resolveSharedMapFromStore() {
+  FutureOr<SharedMap<K, V>> _resolveSharedMapFromStore({
+    SharedMapEntryCallback<K, V>? onPut,
+    SharedMapEntryCallback<K, V>? onRemove,
+  }) {
     var resolvingSharedMap = _resolvingSharedMap;
     if (resolvingSharedMap != null) return resolvingSharedMap;
 
@@ -558,16 +619,23 @@ class SharedMapField<K, V> extends SharedObject {
 
     if (sharedMapAsync is Future<SharedMap<K, V>?>) {
       return _resolvingSharedMap = sharedMapAsync.then((sharedMap) {
-        sharedMap ??= SharedMap(sharedStore, sharedMapID);
+        sharedMap ??= SharedMap<K, V>(sharedStore, sharedMapID);
         _sharedMapExpando[this] = sharedMap;
         _sharedMapReference = sharedMap.sharedReference();
         _resolvingSharedMap = null;
+
+        sharedMap.setCallbacksDynamic<K, V>(onPut: onPut, onRemove: onRemove);
+
         return sharedMap;
       });
     } else {
-      var sharedMap = sharedMapAsync ?? SharedMap(sharedStore, sharedMapID);
+      var sharedMap =
+          sharedMapAsync ?? SharedMap<K, V>(sharedStore, sharedMapID);
       _sharedMapExpando[this] = sharedMap;
       _sharedMapReference = sharedMap.sharedReference();
+
+      sharedMap.setCallbacksDynamic<K, V>(onPut: onPut, onRemove: onRemove);
+
       return sharedMap;
     }
   }
