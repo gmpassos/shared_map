@@ -332,6 +332,14 @@ void main() {
 
       expect(events, equals([('put', 'a', 11), ('put', 'a', 111)]));
 
+      var cached = m2.cached();
+
+      var ca1 = cached.get('a');
+      var ca2 = cached.get('a');
+
+      expect(await ca1, equals(111));
+      expect(await ca2, equals(111));
+
       var va5 = await Isolate.run<int?>(() async {
         var store5 = SharedStore.fromSharedReference(sharedStoreReference);
         var m5 = await store5.getSharedMap(sharedMapID);
