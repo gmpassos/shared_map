@@ -267,7 +267,7 @@ void main() {
       var va5 = await Isolate.run<int?>(() async {
         var store5 = SharedStore.fromSharedReference(sharedStoreReference);
         var m5 = await store5.getSharedMap(sharedMapID);
-        var va5 = await m5?.remove('a');
+        var va5 = await m5?.cached().remove('a');
         return va5;
       });
 
@@ -402,7 +402,7 @@ void main() {
       var va4 = await Isolate.run<int?>(() async {
         final store3 = sharedStoreField.sharedStore;
         var m3 = await store3.getSharedMap(sharedMapID);
-        var va4 = await m3?.put('a', 111);
+        var va4 = await m3?.cached().put('a', 111);
         return va4;
       });
 
