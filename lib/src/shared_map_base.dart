@@ -5,6 +5,7 @@ import 'shared_map_cached.dart';
 import 'shared_map_generic.dart'
     if (dart.library.isolate) 'shared_map_isolate.dart';
 import 'shared_object.dart';
+import 'shared_reference.dart';
 
 typedef SharedStoreProvider = FutureOr<SharedStore?> Function(String id);
 typedef SharedStoreProviderSync = SharedStore? Function(String id);

@@ -1,5 +1,15 @@
 ## 1.1.0
 
+- Expose `SharedObject` implementation using `Isolate`:
+  - `SharedObjectIsolate`:
+    - Implementations: `SharedObjectIsolateMain` and `SharedObjectIsolateAuxiliary`.
+  - New `SharedObjectIsolateMessage`.
+    - Implementations: `SharedObjectIsolateRequestMessage` and `SharedObjectIsolateResponseMessage`.
+
+- New libraries:
+  - 'package:shared_map/shared_object.dart'
+  - 'package:shared_map/shared_object_isolate.dart'
+
 - `SharedObject`:
   - Renamed `isIsolateCopy` to `isAuxiliaryInstance`.
 - Renamed `SharedType` to `ReferenceableType`.
