@@ -1,5 +1,6 @@
 import 'shared_map_base.dart';
 import 'shared_map_cached.dart';
+import 'shared_object.dart';
 
 /// NOT shared implementation of [SharedStore].
 class NotSharedStore implements SharedStore {
@@ -292,7 +293,7 @@ class _NotSharedMapCache<K, V> implements SharedMapCached<K, V> {
       'SharedMapCachedGeneric[$id@${sharedStore.id}]{timeout: $timeout}->$_sharedMap';
 }
 
-class NotSharedStoreField extends SharedObject implements SharedStoreField {
+class NotSharedStoreField extends NotSharedObject implements SharedStoreField {
   final NotSharedStore _notSharedStore;
 
   NotSharedStoreField(this._notSharedStore);
@@ -304,7 +305,7 @@ class NotSharedStoreField extends SharedObject implements SharedStoreField {
   String get sharedStoreID => _notSharedStore.id;
 }
 
-class NotSharedMapField<K, V> extends SharedObject
+class NotSharedMapField<K, V> extends NotSharedObject
     implements SharedMapField<K, V> {
   final NotSharedMap<K, V> _notSharedMap;
 

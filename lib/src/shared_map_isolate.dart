@@ -5,6 +5,7 @@ import 'not_shared_map.dart';
 import 'shared_map_base.dart';
 import 'shared_map_cached.dart';
 import 'shared_map_generic.dart' as generic;
+import 'shared_object.dart';
 
 abstract class SharedIsolate extends SharedType {
   @override
