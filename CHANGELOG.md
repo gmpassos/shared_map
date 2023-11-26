@@ -1,3 +1,8 @@
+## 1.1.0
+
+- `SharedObject`:
+  - Renamed `isIsolateCopy` to `isAuxiliaryInstance`.
+
 ## 1.0.10
 
 - `SharedMapCached`:

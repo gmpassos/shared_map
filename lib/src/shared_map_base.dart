@@ -382,7 +382,7 @@ class SharedStoreField extends SharedObject {
   bool _isolateCopy = false;
 
   @override
-  bool get isAuxiliaryCopy => _isolateCopy;
+  bool get isAuxiliaryInstance => _isolateCopy;
 
   void _setupInstanceIsolateCopy() {
     assert(_sharedStoreExpando[this] == null);
@@ -417,7 +417,7 @@ class SharedStoreField extends SharedObject {
 
   @override
   String toString() =>
-      'SharedStoreField#$sharedStoreID${isAuxiliaryCopy ? '(Isolate copy)' : ''}';
+      'SharedStoreField#$sharedStoreID${isAuxiliaryInstance ? '(auxiliary)' : ''}';
 }
 
 class SharedMapField<K, V> extends SharedObject {
@@ -548,7 +548,7 @@ class SharedMapField<K, V> extends SharedObject {
   bool _isolateCopy = false;
 
   @override
-  bool get isAuxiliaryCopy => _isolateCopy;
+  bool get isAuxiliaryInstance => _isolateCopy;
 
   FutureOr<SharedMap<K, V>> _setupInstanceIsolateCopy() {
     assert(_sharedMapExpando[this] == null);
@@ -643,5 +643,5 @@ class SharedMapField<K, V> extends SharedObject {
 
   @override
   String toString() =>
-      'SharedMapField#${_sharedStoreField.sharedStoreID}->$sharedMapID${isAuxiliaryCopy ? '(Isolate copy)' : ''}';
+      'SharedMapField#${_sharedStoreField.sharedStoreID}->$sharedMapID${isAuxiliaryInstance ? '(auxiliary)' : ''}';
 }

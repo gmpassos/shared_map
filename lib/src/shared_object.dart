@@ -48,27 +48,47 @@ abstract class SharedReference {
   Map<String, dynamic> toJson();
 }
 
-/// Base class for objects that can be copied and passed to other `Isolate`s,
-/// and automatically detected if it's a copied version ([isIsolateCopy]).
+/// Base class for shared objects.
+/// See [isAuxiliaryInstance].
 abstract class SharedObject {
   SharedObject();
 
-  /// Returns `true` if this instance is an auxiliary copy,
+  /// Returns `true` if this is an auxiliary instance,
   /// usually a copy passed to another `Isolate` or running in a remote client.
-  bool get isAuxiliaryCopy;
+  bool get isAuxiliaryInstance;
 
   /// Returns `true` if this instance is the main/original instance.
-  /// Also means that it is NOT an auxiliary copy. See [isAuxiliaryCopy].
-  bool get isMainInstance => !isAuxiliaryCopy;
+  /// Also means that it is NOT an auxiliary instance. See [isAuxiliaryInstance].
+  bool get isMainInstance => !isAuxiliaryInstance;
 }
 
 /// A NOT shared implementation of [SharedObject].
-abstract class NotSharedObject {
+abstract class NotSharedObject extends SharedObject {
   NotSharedObject();
 
-  /// A [NotSharedObject] can't have an auxiliary copy.
-  bool get isAuxiliaryCopy => false;
+  /// A [NotSharedObject] can't have an auxiliary instance.
+  @override
+  bool get isAuxiliaryInstance => false;
 
   /// A [NotSharedObject] is always the main instance. See [isAuxiliaryCopy].
+  @override
   bool get isMainInstance => true;
+}
+
+/// The main ("server") side implementation of a [SharedObject].
+abstract class SharedObjectMain extends SharedObject {
+  @override
+  bool get isAuxiliaryInstance => false;
+
+  @override
+  bool get isMainInstance => true;
+}
+
+/// The auxiliary ("client") side implementation of a [SharedObject].
+abstract class SharedObjectAuxiliary extends SharedObject {
+  @override
+  bool get isAuxiliaryInstance => true;
+
+  @override
+  bool get isMainInstance => false;
 }
