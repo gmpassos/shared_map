@@ -10,14 +10,14 @@ typedef SharedStoreProvider = FutureOr<SharedStore?> Function(String id);
 typedef SharedStoreProviderSync = SharedStore? Function(String id);
 
 /// Base class for [SharedStore] implementations.
-abstract class SharedStore extends SharedType {
+abstract class SharedStore extends ReferenceableType {
   /// Creates a [SharedStore] with [id].
   factory SharedStore(String id) {
     return createSharedStore(id: id);
   }
 
-  /// Creates a [SharedStore] using a [SharedType.newUUID] as [id].
-  factory SharedStore.fromUUID() => SharedStore(SharedType.newUUID());
+  /// Creates a [SharedStore] using a [ReferenceableType.newUUID] as [id].
+  factory SharedStore.fromUUID() => SharedStore(ReferenceableType.newUUID());
 
   /// Creates a [SharedStore] that can NOT be shared.
   /// Useful for tests or to have a version that disables the share capabilities.
@@ -78,15 +78,15 @@ extension SharedMapEntryCallbackExtension<K, V>
 }
 
 /// Base class for [SharedMap] implementations.
-abstract class SharedMap<K, V> extends SharedType {
+abstract class SharedMap<K, V> extends ReferenceableType {
   /// Creates a [SharedMap] with [id].
   factory SharedMap(SharedStore sharedStore, String id) {
     return createSharedMap(sharedStore: sharedStore, id: id);
   }
 
-  /// Creates a [SharedMap] using a [SharedType.newUUID] as [id].
+  /// Creates a [SharedMap] using a [ReferenceableType.newUUID] as [id].
   factory SharedMap.fromUUID(SharedStore sharedStore) =>
-      SharedMap(sharedStore, SharedType.newUUID());
+      SharedMap(sharedStore, ReferenceableType.newUUID());
 
   /// Creates a [SharedMap] that can NOT be shared.
   /// Useful for tests or to have a version that disables the share capabilities.

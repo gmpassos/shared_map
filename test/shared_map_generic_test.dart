@@ -234,13 +234,14 @@ void _doTest<K, V, T extends SharedMap<K, V>>(
     });
 
     test('newUUID', () async {
-      var store1 = storeInstantiator(SharedType.newUUID());
+      var store1 = storeInstantiator(ReferenceableType.newUUID());
 
       if (store1 is! NotSharedStore) {
         expect(store1.id, startsWith('UUID-'));
       }
 
-      var m1 = await store1.getSharedMap<String, int>(SharedType.newUUID());
+      var m1 =
+          await store1.getSharedMap<String, int>(ReferenceableType.newUUID());
       expect(m1, isNotNull);
       expect(m1, isA<SharedMap<String, int>>());
       expect(m1, isA<T>());

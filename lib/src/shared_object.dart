@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 
 /// Base class for [SharedStore] and [SharedMap] implementations.
-abstract class SharedType {
+abstract class ReferenceableType {
   static int _uuidCount = 0;
 
   /// Creates an UUID (Universally Unique Identifier).
@@ -29,11 +29,11 @@ abstract class SharedType {
     return 'UUID-$n1-$n2-$n3-$n4-$n5-$n6-$c';
   }
 
-  /// The ID of the shared instance.
+  /// The ID of the referenceable instance.
   String get id;
 
-  /// Returns the [SharedReference] of this instances, to instantiated it
-  /// using `fromSharedReference` constructor.
+  /// Returns the [SharedReference] of this instances,
+  /// to instantiate it using a `fromSharedReference` constructor.
   SharedReference sharedReference();
 }
 
@@ -51,8 +51,6 @@ abstract class SharedReference {
 /// Base class for shared objects.
 /// See [isAuxiliaryInstance].
 abstract class SharedObject {
-  SharedObject();
-
   /// Returns `true` if this is an auxiliary instance,
   /// usually a copy passed to another `Isolate` or running in a remote client.
   bool get isAuxiliaryInstance;
@@ -64,8 +62,6 @@ abstract class SharedObject {
 
 /// A NOT shared implementation of [SharedObject].
 abstract class NotSharedObject extends SharedObject {
-  NotSharedObject();
-
   /// A [NotSharedObject] can't have an auxiliary instance.
   @override
   bool get isAuxiliaryInstance => false;
@@ -76,7 +72,7 @@ abstract class NotSharedObject extends SharedObject {
 }
 
 /// The main ("server") side implementation of a [SharedObject].
-abstract class SharedObjectMain extends SharedObject {
+mixin SharedObjectMain implements SharedObject {
   @override
   bool get isAuxiliaryInstance => false;
 
@@ -85,7 +81,7 @@ abstract class SharedObjectMain extends SharedObject {
 }
 
 /// The auxiliary ("client") side implementation of a [SharedObject].
-abstract class SharedObjectAuxiliary extends SharedObject {
+mixin class SharedObjectAuxiliary implements SharedObject {
   @override
   bool get isAuxiliaryInstance => true;
 
