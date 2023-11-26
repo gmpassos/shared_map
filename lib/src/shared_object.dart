@@ -48,6 +48,17 @@ abstract class SharedReference {
   Map<String, dynamic> toJson();
 }
 
+/// A NOT shared implementation of [SharedObject].
+abstract class NotSharedObject extends SharedObject {
+  /// A [NotSharedObject] can't have an auxiliary instance.
+  @override
+  bool get isAuxiliaryInstance => false;
+
+  /// A [NotSharedObject] is always the main instance. See [isAuxiliaryCopy].
+  @override
+  bool get isMainInstance => true;
+}
+
 /// Base class for shared objects.
 /// See [isAuxiliaryInstance].
 abstract class SharedObject {
@@ -58,17 +69,6 @@ abstract class SharedObject {
   /// Returns `true` if this instance is the main/original instance.
   /// Also means that it is NOT an auxiliary instance. See [isAuxiliaryInstance].
   bool get isMainInstance => !isAuxiliaryInstance;
-}
-
-/// A NOT shared implementation of [SharedObject].
-abstract class NotSharedObject extends SharedObject {
-  /// A [NotSharedObject] can't have an auxiliary instance.
-  @override
-  bool get isAuxiliaryInstance => false;
-
-  /// A [NotSharedObject] is always the main instance. See [isAuxiliaryCopy].
-  @override
-  bool get isMainInstance => true;
 }
 
 /// The main ("server") side implementation of a [SharedObject].
