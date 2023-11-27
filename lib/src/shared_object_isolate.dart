@@ -87,8 +87,6 @@ class SharedObjectIsolateRequestMessage extends SharedObjectIsolateMessage {
   final List args;
   final SendPort responsePort;
 
-  final StackTrace stackTrace = StackTrace.current;
-
   SharedObjectIsolateRequestMessage(super.id, this.responsePort, this.args);
 
   SharedObjectIsolateResponseMessage<R> createResponse<R>(R response) =>
