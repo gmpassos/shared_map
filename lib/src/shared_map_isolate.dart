@@ -5,25 +5,10 @@ import 'not_shared_map.dart';
 import 'shared_map_base.dart';
 import 'shared_map_cached.dart';
 import 'shared_map_generic.dart' as generic;
+import 'shared_object_isolate.dart';
 
-abstract class SharedIsolate extends SharedType {
-  @override
-  final String id;
-
-  SharedIsolate(this.id);
-
-  late final RawReceivePort _receivePort =
-      RawReceivePort(_onReceiveMessage, "SharedStore[$id]._receivePort");
-
-  void _onReceiveMessage(m);
-}
-
-abstract class SharedStoreIsolate extends SharedIsolate implements SharedStore {
+mixin SharedStoreIsolate implements SharedStore {
   static final Map<String, WeakReference<SharedStoreIsolate>> _instances = {};
-
-  SharedStoreIsolate(super.id) {
-    _setupInstance();
-  }
 
   void _setupInstance() {
     var prev = _instances[id];
@@ -36,25 +21,23 @@ abstract class SharedStoreIsolate extends SharedIsolate implements SharedStore {
   final Map<String, SharedMapIsolate> _sharedMaps = {};
 }
 
-class SharedStoreIsolateServer extends SharedStoreIsolate {
-  SharedStoreIsolateServer(String id) : super(id);
+class SharedStoreIsolateMain extends SharedObjectIsolateMain
+    with SharedStoreIsolate {
+  SharedStoreIsolateMain(String id) : super(id) {
+    _setupInstance();
+  }
 
   @override
-  void _onReceiveMessage(m) {
-    if (m is List) {
-      var clientPort = m[0] as SendPort;
-      var messageID = m[1] as int;
-      var id = m[2] as String;
-      var callCasted = m[3] as _CallCasted;
+  void onReceiveIsolateRequestMessage(SharedObjectIsolateRequestMessage m) {
+    final args = m.args;
 
-      var sharedMap =
-          callCasted(<K1, V1>() => getSharedMap<K1, V1>(id)) as SharedMap?;
+    var id = args[0] as String;
+    var callCasted = args[1] as _CallCasted;
 
-      clientPort.send([messageID, sharedMap?.sharedReference()]);
-      return;
-    }
+    var sharedMap =
+        callCasted(<K1, V1>() => getSharedMap<K1, V1>(id)) as SharedMap?;
 
-    throw StateError("Unknown message type: $m");
+    m.sendResponse(sharedMap?.sharedReference());
   }
 
   @override
@@ -81,41 +64,21 @@ class SharedStoreIsolateServer extends SharedStoreIsolate {
 
   @override
   SharedStoreReferenceIsolate sharedReference() =>
-      SharedStoreReferenceIsolate(id, _receivePort.sendPort);
+      SharedStoreReferenceIsolate(id, isolateSendPort);
 
   @override
   String toString() =>
-      'SharedStoreIsolateServer[$id]{sharedMaps: ${_sharedMaps.length}}';
+      'SharedStoreIsolateMain[$id]{sharedMaps: ${_sharedMaps.length}}';
 }
 
 typedef _CallCasted<K, V> = Object? Function(Object? Function<K1, V1>() f);
 
-class SharedStoreIsolateClient extends SharedStoreIsolate {
-  final SendPort _serverPort;
-
-  SharedStoreIsolateClient(super.id, this._serverPort);
-
+class SharedStoreIsolateAuxiliary extends SharedObjectIsolateAuxiliary
+    with SharedStoreIsolate {
   @override
-  void _onReceiveMessage(m) {
-    if (m is List) {
-      var messageID = m[0] as int;
-      var sharedReference = m[1];
+  final SendPort serverPort;
 
-      var completer = _waitingResponse.remove(messageID);
-
-      if (completer != null && !completer.isCompleted) {
-        completer.complete(sharedReference);
-      }
-
-      return;
-    }
-
-    throw StateError("Unknown message type: $m");
-  }
-
-  int _msgIDCounter = 0;
-
-  final Map<int, Completer<SharedMapReferenceIsolate?>> _waitingResponse = {};
+  SharedStoreIsolateAuxiliary(super.id, this.serverPort);
 
   @override
   FutureOr<SharedMap<K, V>?> getSharedMap<K, V>(
@@ -130,17 +93,12 @@ class SharedStoreIsolateClient extends SharedStoreIsolate {
       return o;
     }
 
-    var msgID = ++_msgIDCounter;
-    var completer = _waitingResponse[msgID] = Completer();
-
     _CallCasted<K, V> callCasted = _buildCallCasted<K, V>();
 
-    _serverPort.send([_receivePort.sendPort, msgID, id, callCasted]);
-
-    return completer.future.then((ref) {
+    return sendRequest<SharedMapReference>([id, callCasted]).then((ref) {
       if (ref == null) {
         throw StateError(
-            "Can't get `SharedMap` `SendPort` from \"server\" instance: $id");
+            "Can't get `SharedMapReference` from \"server\" instance: $id");
       }
       var o = createSharedMap<K, V>(sharedReference: ref);
       o.setCallbacksDynamic<K, V>(onPut: onPut, onRemove: onRemove);
@@ -149,25 +107,19 @@ class SharedStoreIsolateClient extends SharedStoreIsolate {
   }
 
   /// Generates the lambda [Function] that will be passed to the
-  /// [SharedMapIsolateServer] to allow the correct casted call to [getSharedMap]`<K,V>()`.
+  /// [SharedMapIsolateMain] to allow the correct casted call to [getSharedMap]`<K,V>()`.
   _CallCasted<K, V> _buildCallCasted<K, V>() => (f) => f<K, V>();
 
   @override
   SharedStoreReferenceIsolate sharedReference() =>
-      SharedStoreReferenceIsolate(id, _serverPort);
+      SharedStoreReferenceIsolate(id, serverPort);
 
   @override
   String toString() =>
-      'SharedStoreIsolateClient[$id]{sharedMaps: ${_sharedMaps.length}}';
+      'SharedStoreIsolateAuxiliary[$id]{sharedMaps: ${_sharedMaps.length}}';
 }
 
-abstract class SharedMapIsolate<K, V> extends SharedIsolate
-    implements SharedMap<K, V> {
-  @override
-  final SharedStore sharedStore;
-
-  SharedMapIsolate(this.sharedStore, super.id);
-
+mixin SharedMapIsolate<K, V> implements SharedMap<K, V> {
   @override
   SharedMapEntryCallback<K, V>? onPut;
 
@@ -201,81 +153,80 @@ abstract class SharedMapIsolate<K, V> extends SharedIsolate
   }
 }
 
-class SharedMapIsolateServer<K, V> extends SharedMapIsolate<K, V>
+class SharedMapIsolateMain<K, V> extends SharedObjectIsolateMain
+    with SharedMapIsolate<K, V>
     implements SharedMapSync<K, V> {
+  @override
+  final SharedStore sharedStore;
+
   final Map<K, V> _entries;
 
-  SharedMapIsolateServer(super.sharedStore, super.id) : _entries = {};
+  SharedMapIsolateMain(this.sharedStore, super.id) : _entries = {};
 
   @override
-  void _onReceiveMessage(m) {
-    if (m is List) {
-      var op = m[0] as SharedMapOperation;
-      var clientPort = m[1] as SendPort;
-      var messageID = m[2] as int;
+  void onReceiveIsolateRequestMessage(SharedObjectIsolateRequestMessage m) {
+    final args = m.args;
 
-      Object? response;
+    final op = args[0] as SharedMapOperation;
 
-      switch (op) {
-        case SharedMapOperation.get:
-          {
-            var key = m[3];
-            response = get(key);
-          }
-        case SharedMapOperation.put:
-          {
-            var key = m[3];
-            var putValue = m[4];
-            response = put(key, putValue);
-          }
-        case SharedMapOperation.putIfAbsent:
-          {
-            var key = m[3];
-            var putValue = m[4];
-            response = putIfAbsent(key, putValue);
-          }
-        case SharedMapOperation.remove:
-          {
-            var key = m[3];
-            response = remove(key);
-          }
-        case SharedMapOperation.removeAll:
-          {
-            var keys = m[3] as List<K>;
-            response = removeAll(keys);
-          }
-        case SharedMapOperation.keys:
-          {
-            response = keys();
-          }
-        case SharedMapOperation.allValues:
-          {
-            response = values();
-          }
-        case SharedMapOperation.entries:
-          {
-            response = entries();
-          }
-        case SharedMapOperation.length:
-          {
-            response = length();
-          }
-        case SharedMapOperation.clear:
-          {
-            response = clear();
-          }
-        case SharedMapOperation.where:
-          {
-            var test = m[3];
-            response = where(test);
-          }
-      }
+    Object? response;
 
-      clientPort.send([messageID, response]);
-      return;
+    switch (op) {
+      case SharedMapOperation.get:
+        {
+          var key = args[1];
+          response = get(key);
+        }
+      case SharedMapOperation.put:
+        {
+          var key = args[1];
+          var putValue = args[2];
+          response = put(key, putValue);
+        }
+      case SharedMapOperation.putIfAbsent:
+        {
+          var key = args[1];
+          var putValue = args[2];
+          response = putIfAbsent(key, putValue);
+        }
+      case SharedMapOperation.remove:
+        {
+          var key = args[1];
+          response = remove(key);
+        }
+      case SharedMapOperation.removeAll:
+        {
+          var keys = args[1] as List<K>;
+          response = removeAll(keys);
+        }
+      case SharedMapOperation.keys:
+        {
+          response = keys();
+        }
+      case SharedMapOperation.allValues:
+        {
+          response = values();
+        }
+      case SharedMapOperation.entries:
+        {
+          response = entries();
+        }
+      case SharedMapOperation.length:
+        {
+          response = length();
+        }
+      case SharedMapOperation.clear:
+        {
+          response = clear();
+        }
+      case SharedMapOperation.where:
+        {
+          var test = args[1];
+          response = where(test);
+        }
     }
 
-    throw StateError("Unknown message type: $m");
+    m.sendResponse(response);
   }
 
   @override
@@ -370,158 +321,60 @@ class SharedMapIsolateServer<K, V> extends SharedMapIsolate<K, V>
 
   @override
   SharedMapReferenceIsolate sharedReference() => SharedMapReferenceIsolate(
-      id, sharedStore.sharedReference(), _receivePort.sendPort);
+      id, sharedStore.sharedReference(), isolateSendPort);
 
   @override
   String toString() =>
-      'SharedMapIsolateServer<$K,$V>[$id@${sharedStore.id}]{entries: ${_entries.length}}';
+      'SharedMapIsolateMain<$K,$V>[$id@${sharedStore.id}]{entries: ${_entries.length}}';
 }
 
-class SharedMapIsolateClient<K, V> extends SharedMapIsolate<K, V>
-    implements SharedMap<K, V> {
-  final SendPort _serverPort;
+class SharedMapIsolateAuxiliary<K, V> extends SharedObjectIsolateAuxiliary
+    with SharedMapIsolate<K, V> {
+  @override
+  final SharedStore sharedStore;
+  @override
+  final SendPort serverPort;
 
-  SharedMapIsolateClient(super.sharedStore, super.id, this._serverPort);
-
-  int _msgIDCounter = 0;
-
-  final Map<int, Completer> _waitingResponse = {};
+  SharedMapIsolateAuxiliary(this.sharedStore, super.id, this.serverPort);
 
   @override
-  void _onReceiveMessage(m) {
-    if (m is List) {
-      var messageID = m[0] as int;
-      var response = m[1];
-
-      var completer = _waitingResponse.remove(messageID);
-
-      if (completer != null && !completer.isCompleted) {
-        completer.complete(response);
-      }
-
-      return;
-    }
-
-    throw StateError("Unknown message type: $m");
-  }
-
-  (int, Completer<T>) _newMsg<T>() {
-    var msgID = ++_msgIDCounter;
-    var completer = _waitingResponse[msgID] = Completer<T>();
-    return (msgID, completer);
-  }
+  Future<V?> get(K key) => sendRequest([SharedMapOperation.get, key]);
 
   @override
-  Future<V?> get(K key) async {
-    var (msgID, completer) = _newMsg<V?>();
-
-    _serverPort
-        .send([SharedMapOperation.get, _receivePort.sendPort, msgID, key]);
-
-    return completer.future;
-  }
+  Future<V?> put(K key, V? value) =>
+      sendRequest([SharedMapOperation.put, key, value]);
 
   @override
-  Future<V?> put(K key, V? value) {
-    var (msgID, completer) = _newMsg<V?>();
-
-    _serverPort.send(
-        [SharedMapOperation.put, _receivePort.sendPort, msgID, key, value]);
-
-    return completer.future;
-  }
+  Future<V?> putIfAbsent(K key, V? absentValue) =>
+      sendRequest([SharedMapOperation.putIfAbsent, key, absentValue]);
 
   @override
-  Future<V?> putIfAbsent(K key, V? absentValue) {
-    var (msgID, completer) = _newMsg<V?>();
-
-    _serverPort.send([
-      SharedMapOperation.putIfAbsent,
-      _receivePort.sendPort,
-      msgID,
-      key,
-      absentValue
-    ]);
-
-    return completer.future;
-  }
+  Future<V?> remove(K key) => sendRequest([SharedMapOperation.remove, key]);
 
   @override
-  Future<V?> remove(K key) {
-    var (msgID, completer) = _newMsg<V?>();
-
-    _serverPort
-        .send([SharedMapOperation.remove, _receivePort.sendPort, msgID, key]);
-
-    return completer.future;
-  }
+  Future<List<V?>> removeAll(List<K> keys) =>
+      sendRequestNotNull<List<V?>>([SharedMapOperation.removeAll, keys]);
 
   @override
-  Future<List<V?>> removeAll(List<K> keys) {
-    var (msgID, completer) = _newMsg<List<V?>>();
-
-    _serverPort.send(
-        [SharedMapOperation.removeAll, _receivePort.sendPort, msgID, keys]);
-
-    return completer.future;
-  }
+  Future<List<K>> keys() => sendRequestNotNull([SharedMapOperation.keys]);
 
   @override
-  Future<List<K>> keys() {
-    var (msgID, completer) = _newMsg<List<K>>();
-
-    _serverPort.send([SharedMapOperation.keys, _receivePort.sendPort, msgID]);
-
-    return completer.future;
-  }
+  Future<List<V>> values() =>
+      sendRequestNotNull([SharedMapOperation.allValues]);
 
   @override
-  Future<List<V>> values() {
-    var (msgID, completer) = _newMsg<List<V>>();
-
-    _serverPort
-        .send([SharedMapOperation.allValues, _receivePort.sendPort, msgID]);
-
-    return completer.future;
-  }
+  Future<List<MapEntry<K, V>>> entries() =>
+      sendRequestNotNull([SharedMapOperation.entries]);
 
   @override
-  Future<List<MapEntry<K, V>>> entries() {
-    var (msgID, completer) = _newMsg<List<MapEntry<K, V>>>();
-
-    _serverPort
-        .send([SharedMapOperation.entries, _receivePort.sendPort, msgID]);
-
-    return completer.future;
-  }
+  Future<List<MapEntry<K, V>>> where(bool Function(K key, V value) test) =>
+      sendRequestNotNull([SharedMapOperation.where, test]);
 
   @override
-  Future<List<MapEntry<K, V>>> where(bool Function(K key, V value) test) {
-    var (msgID, completer) = _newMsg<List<MapEntry<K, V>>>();
-
-    _serverPort
-        .send([SharedMapOperation.where, _receivePort.sendPort, msgID, test]);
-
-    return completer.future;
-  }
+  Future<int> length() => sendRequestNotNull([SharedMapOperation.length]);
 
   @override
-  Future<int> length() {
-    var (msgID, completer) = _newMsg<int>();
-
-    _serverPort.send([SharedMapOperation.length, _receivePort.sendPort, msgID]);
-
-    return completer.future;
-  }
-
-  @override
-  Future<int> clear() {
-    var (msgID, completer) = _newMsg<int>();
-
-    _serverPort.send([SharedMapOperation.clear, _receivePort.sendPort, msgID]);
-
-    return completer.future;
-  }
+  Future<int> clear() => sendRequestNotNull([SharedMapOperation.clear]);
 
   final Expando<SharedMapCached<K, V>> _cached = Expando();
 
@@ -533,10 +386,11 @@ class SharedMapIsolateClient<K, V> extends SharedMapIsolate<K, V>
 
   @override
   SharedMapReference sharedReference() =>
-      SharedMapReferenceIsolate(id, sharedStore.sharedReference(), _serverPort);
+      SharedMapReferenceIsolate(id, sharedStore.sharedReference(), serverPort);
 
   @override
-  String toString() => 'SharedMapIsolateClient<$K,$V>[$id@${sharedStore.id}]';
+  String toString() =>
+      'SharedMapIsolateAuxiliary<$K,$V>[$id@${sharedStore.id}]';
 }
 
 class SharedStoreReferenceIsolate extends SharedStoreReference {
@@ -577,17 +431,17 @@ SharedStore createSharedStore(
 
     if (sharedReference is SharedStoreReferenceIsolate) {
       if (prev != null) {
-        if (prev is SharedStoreIsolateServer) {
+        if (prev is SharedStoreIsolateMain) {
           if (prev.sharedReference()._serverPort ==
               sharedReference._serverPort) {
             return prev;
           }
-        } else if (prev is SharedStoreIsolateClient) {
+        } else if (prev is SharedStoreIsolateAuxiliary) {
           return prev;
         }
       }
 
-      return SharedStoreIsolateClient(id, sharedReference._serverPort);
+      return SharedStoreIsolateAuxiliary(id, sharedReference._serverPort);
     } else {
       if (prev != null) return prev;
 
@@ -602,7 +456,7 @@ SharedStore createSharedStore(
     var prev = SharedStoreIsolate._instances[id!]?.target;
     if (prev != null) return prev;
 
-    return SharedStoreIsolateServer(id);
+    return SharedStoreIsolateMain(id);
   }
 }
 
@@ -622,11 +476,11 @@ SharedMap<K, V> createSharedMap<K, V>(
       var sharedStoreID = sharedStoreReference.id;
 
       var sharedStore = SharedStoreIsolate._instances[sharedStoreID]?.target ??
-          SharedStoreIsolateClient(
+          SharedStoreIsolateAuxiliary(
               sharedStoreID, sharedStoreReference._serverPort);
 
       var sharedMap = sharedStore._sharedMaps[id] ??=
-          SharedMapIsolateClient<K, V>(
+          SharedMapIsolateAuxiliary<K, V>(
               sharedStore, id, sharedReference._serverPort);
       return sharedMap as SharedMap<K, V>;
     } else if (sharedReference is generic.SharedMapReferenceGeneric) {
@@ -635,7 +489,7 @@ SharedMap<K, V> createSharedMap<K, V>(
     }
   } else if (sharedStore is SharedStoreIsolate) {
     var sharedMap = sharedStore._sharedMaps[id!] ??=
-        SharedMapIsolateServer<K, V>(sharedStore, id);
+        SharedMapIsolateMain<K, V>(sharedStore, id);
     return sharedMap as SharedMap<K, V>;
   }
 

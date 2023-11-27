@@ -1,60 +1,24 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'not_shared_map.dart';
 import 'shared_map_cached.dart';
 import 'shared_map_generic.dart'
     if (dart.library.isolate) 'shared_map_isolate.dart';
-
-/// Base class for [SharedStore] and [SharedMap] implementations.
-abstract class SharedType {
-  static int _uuidCount = 0;
-
-  /// Creates an UUID (Universally Unique Identifier).
-  /// See [SharedStore.fromUUID] and [SharedMap.fromUUID].
-  static String newUUID() {
-    var c = ++_uuidCount;
-    var now = DateTime.now();
-
-    const range = 1999999999;
-
-    var rand1 = math.Random();
-    var rand2 = math.Random(now.microsecondsSinceEpoch);
-
-    var seed3 = (rand1.nextInt(range) ^ rand2.nextInt(range)).abs() ^ c;
-    var rand3 = math.Random(seed3);
-
-    var n1 = rand1.nextInt(range);
-    var n2 = rand2.nextInt(range);
-    var n3 = rand3.nextInt(range);
-
-    var n4 = (rand1.nextInt(range) ^ rand2.nextInt(range)).abs();
-    var n5 = (rand1.nextInt(range) ^ rand3.nextInt(range)).abs();
-    var n6 = (rand2.nextInt(range) ^ rand3.nextInt(range)).abs();
-
-    return 'UUID-$n1-$n2-$n3-$n4-$n5-$n6-$c';
-  }
-
-  /// The ID of the shared instance.
-  String get id;
-
-  /// Returns the [SharedReference] of this instances, to instantiated it
-  /// using `fromSharedReference` constructor.
-  SharedReference sharedReference();
-}
+import 'shared_object.dart';
+import 'shared_reference.dart';
 
 typedef SharedStoreProvider = FutureOr<SharedStore?> Function(String id);
 typedef SharedStoreProviderSync = SharedStore? Function(String id);
 
 /// Base class for [SharedStore] implementations.
-abstract class SharedStore extends SharedType {
+abstract class SharedStore extends ReferenceableType {
   /// Creates a [SharedStore] with [id].
   factory SharedStore(String id) {
     return createSharedStore(id: id);
   }
 
-  /// Creates a [SharedStore] using a [SharedType.newUUID] as [id].
-  factory SharedStore.fromUUID() => SharedStore(SharedType.newUUID());
+  /// Creates a [SharedStore] using a [ReferenceableType.newUUID] as [id].
+  factory SharedStore.fromUUID() => SharedStore(ReferenceableType.newUUID());
 
   /// Creates a [SharedStore] that can NOT be shared.
   /// Useful for tests or to have a version that disables the share capabilities.
@@ -115,15 +79,15 @@ extension SharedMapEntryCallbackExtension<K, V>
 }
 
 /// Base class for [SharedMap] implementations.
-abstract class SharedMap<K, V> extends SharedType {
+abstract class SharedMap<K, V> extends ReferenceableType {
   /// Creates a [SharedMap] with [id].
   factory SharedMap(SharedStore sharedStore, String id) {
     return createSharedMap(sharedStore: sharedStore, id: id);
   }
 
-  /// Creates a [SharedMap] using a [SharedType.newUUID] as [id].
+  /// Creates a [SharedMap] using a [ReferenceableType.newUUID] as [id].
   factory SharedMap.fromUUID(SharedStore sharedStore) =>
-      SharedMap(sharedStore, SharedType.newUUID());
+      SharedMap(sharedStore, ReferenceableType.newUUID());
 
   /// Creates a [SharedMap] that can NOT be shared.
   /// Useful for tests or to have a version that disables the share capabilities.
@@ -248,17 +212,6 @@ abstract class SharedMapSync<K, V> implements SharedMap<K, V> {
   SharedMapCached<K, V> cached({Duration? timeout});
 }
 
-/// Base class for [SharedReference] implementations.
-abstract class SharedReference {
-  /// The ID of the referenced instance.
-  final String id;
-
-  SharedReference(this.id);
-
-  /// The JSON of this [SharedReference].
-  Map<String, dynamic> toJson();
-}
-
 /// Shared reference to a [SharedStore].
 abstract class SharedStoreReference extends SharedReference {
   SharedStoreReference(super.id);
@@ -293,17 +246,6 @@ abstract class SharedMapReference extends SharedReference {
 
   @override
   String toString() => 'SharedMapReference${toJson()}';
-}
-
-/// Base class for objects that can be copied and passed to other `Isolate`s,
-/// and automatically detected if it's a copied version ([isIsolateCopy]).
-abstract class SharedObject {
-  SharedObject();
-
-  bool _isolateCopy = false;
-
-  /// Returns `true` if this instance is a copy passed to another `Isolate`.
-  bool get isIsolateCopy => _isolateCopy;
 }
 
 /// A [SharedStore] field/wrapper. This will handle the [SharedStore] in.
@@ -438,6 +380,11 @@ class SharedStoreField extends SharedObject {
     return _setupInstanceIsolateCopy();
   }
 
+  bool _isolateCopy = false;
+
+  @override
+  bool get isAuxiliaryInstance => _isolateCopy;
+
   void _setupInstanceIsolateCopy() {
     assert(_sharedStoreExpando[this] == null);
 
@@ -471,7 +418,7 @@ class SharedStoreField extends SharedObject {
 
   @override
   String toString() =>
-      'SharedStoreField#$sharedStoreID${isIsolateCopy ? '(Isolate copy)' : ''}';
+      'SharedStoreField#$sharedStoreID${isAuxiliaryInstance ? '(auxiliary)' : ''}';
 }
 
 class SharedMapField<K, V> extends SharedObject {
@@ -599,6 +546,11 @@ class SharedMapField<K, V> extends SharedObject {
     return _setupInstanceIsolateCopy();
   }
 
+  bool _isolateCopy = false;
+
+  @override
+  bool get isAuxiliaryInstance => _isolateCopy;
+
   FutureOr<SharedMap<K, V>> _setupInstanceIsolateCopy() {
     assert(_sharedMapExpando[this] == null);
 
@@ -692,5 +644,5 @@ class SharedMapField<K, V> extends SharedObject {
 
   @override
   String toString() =>
-      'SharedMapField#${_sharedStoreField.sharedStoreID}->$sharedMapID${isIsolateCopy ? '(Isolate copy)' : ''}';
+      'SharedMapField#${_sharedStoreField.sharedStoreID}->$sharedMapID${isAuxiliaryInstance ? '(auxiliary)' : ''}';
 }
