@@ -1,3 +1,7 @@
+## 1.1.1
+
+- `SharedStoreIsolateAuxiliary`: fix initialization.
+
 ## 1.1.0
 
 - Expose `SharedObject` implementation using `Isolate`:

@@ -78,7 +78,9 @@ class SharedStoreIsolateAuxiliary extends SharedObjectIsolateAuxiliary
   @override
   final SendPort serverPort;
 
-  SharedStoreIsolateAuxiliary(super.id, this.serverPort);
+  SharedStoreIsolateAuxiliary(super.id, this.serverPort) {
+    _setupInstance();
+  }
 
   @override
   FutureOr<SharedMap<K, V>?> getSharedMap<K, V>(

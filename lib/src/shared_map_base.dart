@@ -285,7 +285,9 @@ class SharedStoreField extends SharedObject {
     }
 
     var o = SharedStoreField(sharedStore.id);
-    if (!identical(sharedStore, o.sharedStore)) {
+    var sharedStore2 = o.sharedStore;
+
+    if (!identical(sharedStore, sharedStore2)) {
       throw StateError(
           "Parameter `sharedStore` instance is NOT the same of `SharedStoreField.sharedStore`> $sharedStore != ${o.sharedStore}");
     }
