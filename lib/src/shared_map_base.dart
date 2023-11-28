@@ -5,6 +5,7 @@ import 'shared_map_cached.dart';
 import 'shared_map_generic.dart'
     if (dart.library.isolate) 'shared_map_isolate.dart';
 import 'shared_object.dart';
+import 'shared_object_field.dart';
 import 'shared_reference.dart';
 
 typedef SharedStoreProvider = FutureOr<SharedStore?> Function(String id);
@@ -28,6 +29,20 @@ abstract class SharedStore extends ReferenceableType {
   factory SharedStore.fromSharedReference(
       SharedStoreReference sharedReference) {
     return createSharedStore(sharedReference: sharedReference);
+  }
+
+  /// Creates a [SharedStore] from [reference] or [id].
+  factory SharedStore.from({SharedStoreReference? reference, String? id}) {
+    if (reference != null) {
+      return SharedStore.fromSharedReference(reference);
+    }
+
+    if (id != null) {
+      return SharedStore(id);
+    }
+
+    throw StateError(
+        "Null values for both `reference` and `id` parameters! Please provide at least one.");
   }
 
   /// Returns a [SharedMap] with [id] in this [SharedStore] instance.
@@ -249,50 +264,21 @@ abstract class SharedMapReference extends SharedReference {
 }
 
 /// A [SharedStore] field/wrapper. This will handle the [SharedStore] in.
-class SharedStoreField extends SharedObject {
-  static final Map<String, WeakReference<SharedStoreField>> _instances = {};
+class SharedStoreField extends SharedObjectField<SharedStoreReference,
+    SharedStore, SharedStoreField> {
+  static final _instanceHandler = SharedFieldInstanceHandler<
+      SharedStoreReference, SharedStore, SharedStoreField>(
+    fieldInstantiator: SharedStoreField._fromID,
+    sharedObjectInstantiator: SharedStore.from,
+  );
 
-  static SharedStoreField? _getInstanceByID(String id) {
-    var ref = _instances[id];
+  SharedStoreField._fromID(String id)
+      : super.fromID(id, instanceHandler: _instanceHandler);
 
-    if (ref != null) {
-      var prev = ref.target;
-      if (prev != null) {
-        return prev;
-      } else {
-        _instances.remove(id);
-      }
-    }
+  factory SharedStoreField(String id) => _instanceHandler.fromID(id);
 
-    return null;
-  }
-
-  factory SharedStoreField(String sharedStoreID) {
-    var ref = _instances[sharedStoreID];
-    if (ref != null) {
-      var o = ref.target;
-      if (o != null) return o;
-    }
-
-    var o = SharedStoreField._(sharedStoreID);
-    assert(identical(o, _instances[sharedStoreID]?.target));
-    return o;
-  }
-
-  factory SharedStoreField.fromSharedStore(SharedStore sharedStore) {
-    if (sharedStore is NotSharedStore) {
-      return NotSharedStoreField(sharedStore);
-    }
-
-    var o = SharedStoreField(sharedStore.id);
-    var sharedStore2 = o.sharedStore;
-
-    if (!identical(sharedStore, sharedStore2)) {
-      throw StateError(
-          "Parameter `sharedStore` instance is NOT the same of `SharedStoreField.sharedStore`> $sharedStore != ${o.sharedStore}");
-    }
-    return o;
-  }
+  factory SharedStoreField.fromSharedStore(SharedStore o) =>
+      _instanceHandler.fromSharedObject(o);
 
   factory SharedStoreField.from(
       {SharedStoreField? sharedStoreField,
@@ -346,81 +332,12 @@ class SharedStoreField extends SharedObject {
     return null;
   }
 
-  /// The global ID of the [sharedStore].
-  final String sharedStoreID;
-
-  SharedStoreField._(this.sharedStoreID) {
-    _setupInstanceFromConstructor();
-  }
-
-  static final Expando<SharedStore> _sharedStoreExpando = Expando();
-  SharedStoreReference? _sharedStoreReference;
-
-  void _setupInstanceFromConstructor() {
-    assert(_sharedStoreExpando[this] == null);
-
-    final sharedStoreID = this.sharedStoreID;
-    assert(_getInstanceByID(sharedStoreID) == null);
-
-    var sharedStore = _sharedStoreExpando[this] = SharedStore(sharedStoreID);
-    _sharedStoreReference = sharedStore.sharedReference();
-
-    _instances[sharedStoreID] = WeakReference(this);
-  }
-
-  void _setupInstance() {
-    var prev = _getInstanceByID(sharedStoreID);
-    if (prev != null) {
-      if (identical(prev, this)) {
-        return;
-      } else {
-        throw StateError(
-            "Previous `SharedStore` instance (id: $sharedStoreID) NOT identical to this instance: $prev != $this");
-      }
-    }
-
-    return _setupInstanceIsolateCopy();
-  }
-
-  bool _isolateCopy = false;
-
   @override
-  bool get isAuxiliaryInstance => _isolateCopy;
+  String get runtimeTypeName => 'SharedStoreField';
 
-  void _setupInstanceIsolateCopy() {
-    assert(_sharedStoreExpando[this] == null);
+  String get sharedStoreID => sharedObjectID;
 
-    _isolateCopy = true;
-
-    var sharedStoreReference = _sharedStoreReference ??
-        (throw StateError(
-            "An Isolate copy should have `_sharedStoreReference` defined!"));
-
-    var sharedStore = SharedStore.fromSharedReference(sharedStoreReference);
-    _sharedStoreExpando[this] = sharedStore;
-
-    _instances[sharedStoreID] = WeakReference(this);
-  }
-
-  /// The [SharedStore] of this instance. This [SharedStore] will be
-  /// automatically shared among `Isolate` copies.
-  ///
-  /// See [isAuxiliaryInstance].
-  SharedStore get sharedStore {
-    _setupInstance();
-
-    var sharedStored = _sharedStoreExpando[this];
-    if (sharedStored == null) {
-      throw StateError(
-          "After `_setupInstance` `sharedStored` should be defined at `_sharedStoreExpando`");
-    }
-
-    return sharedStored;
-  }
-
-  @override
-  String toString() =>
-      'SharedStoreField#$sharedStoreID${isAuxiliaryInstance ? '(auxiliary)' : ''}';
+  SharedStore get sharedStore => sharedObject;
 }
 
 class SharedMapField<K, V> extends SharedObject {

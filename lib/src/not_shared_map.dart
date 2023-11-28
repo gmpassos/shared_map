@@ -303,6 +303,15 @@ class NotSharedStoreField extends NotSharedObject implements SharedStoreField {
 
   @override
   String get sharedStoreID => _notSharedStore.id;
+
+  @override
+  String get runtimeTypeName => 'NotSharedStoreField';
+
+  @override
+  SharedStore get sharedObject => sharedStore;
+
+  @override
+  String get sharedObjectID => sharedStoreID;
 }
 
 class NotSharedMapField<K, V> extends NotSharedObject

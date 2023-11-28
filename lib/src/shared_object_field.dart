@@ -2,22 +2,18 @@ import 'shared_object.dart';
 import 'shared_reference.dart';
 
 /// [SharedObjectField] instantiator
-typedef SharedFieldInstantiator<
-        R extends SharedReference,
-        O extends SharedObjectReferenceable<R>,
-        F extends SharedObjectField<R, O, F>>
+typedef SharedFieldInstantiator<R extends SharedReference,
+        O extends ReferenceableType, F extends SharedObjectField<R, O, F>>
     = F Function(String id);
 
 /// [SharedObjectReferenceable] instantiator
 typedef SharedObjectInstantiator<R extends SharedReference,
-        O extends SharedObjectReferenceable<R>>
+        O extends ReferenceableType>
     = O Function({R? reference, String? id});
 
 /// Instance handler for a [SharedObjectField].
-class SharedFieldInstanceHandler<
-    R extends SharedReference,
-    O extends SharedObjectReferenceable<R>,
-    F extends SharedObjectField<R, O, F>> {
+class SharedFieldInstanceHandler<R extends SharedReference,
+    O extends ReferenceableType, F extends SharedObjectField<R, O, F>> {
   static final Map<Type, SharedFieldInstanceHandler> _instances = {};
 
   factory SharedFieldInstanceHandler(
@@ -66,7 +62,7 @@ class SharedFieldInstanceHandler<
   }
 
   F fromSharedObject(O o) {
-    var field = fieldInstantiator(o.id);
+    var field = fromID(o.id);
     var o2 = field.sharedObject;
 
     if (!identical(o, o2)) {
@@ -112,7 +108,7 @@ class SharedFieldInstanceHandler<
 /// Base class for [SharedObjectField] implementation.
 abstract class SharedObjectField<
     R extends SharedReference,
-    O extends SharedObjectReferenceable<R>,
+    O extends ReferenceableType,
     F extends SharedObjectField<R, O, F>> extends SharedObject {
   final SharedFieldInstantiator<R, O, F> _fieldInstantiator;
   final SharedObjectInstantiator<R, O> _sharedObjectInstantiator;
@@ -158,7 +154,7 @@ abstract class SharedObjectField<
 
     var o = instanceHandler._sharedObjectExpando[this] =
         instanceHandler.sharedObjectInstantiator(id: id);
-    _reference = o.sharedReference();
+    _reference = o.sharedReference() as R;
 
     _instances[id] = WeakReference(this as F);
   }
