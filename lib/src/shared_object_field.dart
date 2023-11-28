@@ -218,5 +218,5 @@ abstract class SharedObjectField<
 
   @override
   String toString() =>
-      '$runtimeTypeName#$sharedObjectID${isAuxiliaryInstance ? '(auxiliary)' : ''}';
+      '$runtimeTypeName#$sharedObjectID${isAuxiliaryInstance ? '(aux)' : ''}';
 }

@@ -563,5 +563,5 @@ class SharedMapField<K, V> extends SharedObject {
 
   @override
   String toString() =>
-      'SharedMapField#${_sharedStoreField.sharedStoreID}->$sharedMapID${isAuxiliaryInstance ? '(auxiliary)' : ''}';
+      'SharedMapField#${_sharedStoreField.sharedStoreID}->$sharedMapID${isAuxiliaryInstance ? '(aux)' : ''}';
 }
