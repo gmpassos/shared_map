@@ -21,7 +21,8 @@ mixin SharedStoreIsolate implements SharedStore {
   final Map<String, SharedMapIsolate> _sharedMaps = {};
 }
 
-class SharedStoreIsolateMain extends SharedObjectIsolateMain
+class SharedStoreIsolateMain
+    extends SharedObjectIsolateMain<SharedStoreReferenceIsolate>
     with SharedStoreIsolate {
   SharedStoreIsolateMain(String id) : super(id) {
     _setupInstance();
@@ -73,7 +74,8 @@ class SharedStoreIsolateMain extends SharedObjectIsolateMain
 
 typedef _CallCasted<K, V> = Object? Function(Object? Function<K1, V1>() f);
 
-class SharedStoreIsolateAuxiliary extends SharedObjectIsolateAuxiliary
+class SharedStoreIsolateAuxiliary
+    extends SharedObjectIsolateAuxiliary<SharedStoreReferenceIsolate, dynamic>
     with SharedStoreIsolate {
   @override
   final SendPort serverPort;
@@ -121,7 +123,8 @@ class SharedStoreIsolateAuxiliary extends SharedObjectIsolateAuxiliary
       'SharedStoreIsolateAuxiliary[$id]{sharedMaps: ${_sharedMaps.length}}';
 }
 
-mixin SharedMapIsolate<K, V> implements SharedMap<K, V> {
+mixin SharedMapIsolate<K, V>
+    implements SharedMap<K, V>, SharedObjectIsolate<SharedMapReferenceIsolate> {
   @override
   SharedMapEntryCallback<K, V>? onPut;
 
@@ -155,7 +158,8 @@ mixin SharedMapIsolate<K, V> implements SharedMap<K, V> {
   }
 }
 
-class SharedMapIsolateMain<K, V> extends SharedObjectIsolateMain
+class SharedMapIsolateMain<K, V>
+    extends SharedObjectIsolateMain<SharedMapReferenceIsolate>
     with SharedMapIsolate<K, V>
     implements SharedMapSync<K, V> {
   @override
@@ -330,7 +334,8 @@ class SharedMapIsolateMain<K, V> extends SharedObjectIsolateMain
       'SharedMapIsolateMain<$K,$V>[$id@${sharedStore.id}]{entries: ${_entries.length}}';
 }
 
-class SharedMapIsolateAuxiliary<K, V> extends SharedObjectIsolateAuxiliary
+class SharedMapIsolateAuxiliary<K, V>
+    extends SharedObjectIsolateAuxiliary<SharedMapReferenceIsolate, dynamic>
     with SharedMapIsolate<K, V> {
   @override
   final SharedStore sharedStore;
@@ -387,7 +392,7 @@ class SharedMapIsolateAuxiliary<K, V> extends SharedObjectIsolateAuxiliary
   }
 
   @override
-  SharedMapReference sharedReference() =>
+  SharedMapReferenceIsolate sharedReference() =>
       SharedMapReferenceIsolate(id, sharedStore.sharedReference(), serverPort);
 
   @override
@@ -395,17 +400,21 @@ class SharedMapIsolateAuxiliary<K, V> extends SharedObjectIsolateAuxiliary
       'SharedMapIsolateAuxiliary<$K,$V>[$id@${sharedStore.id}]';
 }
 
-class SharedStoreReferenceIsolate extends SharedStoreReference {
-  final SendPort _serverPort;
+class SharedStoreReferenceIsolate extends SharedStoreReference
+    implements SharedReferenceIsolate {
+  @override
+  final SendPort serverPort;
 
-  SharedStoreReferenceIsolate(super.id, this._serverPort);
+  SharedStoreReferenceIsolate(super.id, this.serverPort);
 }
 
-class SharedMapReferenceIsolate extends SharedMapReference {
-  final SendPort _serverPort;
+class SharedMapReferenceIsolate extends SharedMapReference
+    implements SharedReferenceIsolate {
+  @override
+  final SendPort serverPort;
 
   SharedMapReferenceIsolate(
-      super.id, super.sharedStoreReference, this._serverPort);
+      super.id, super.sharedStoreReference, this.serverPort);
 }
 
 SharedStoreReference createSharedStoreReference({Map<String, dynamic>? json}) {
@@ -434,8 +443,7 @@ SharedStore createSharedStore(
     if (sharedReference is SharedStoreReferenceIsolate) {
       if (prev != null) {
         if (prev is SharedStoreIsolateMain) {
-          if (prev.sharedReference()._serverPort ==
-              sharedReference._serverPort) {
+          if (prev.sharedReference().serverPort == sharedReference.serverPort) {
             return prev;
           }
         } else if (prev is SharedStoreIsolateAuxiliary) {
@@ -443,7 +451,7 @@ SharedStore createSharedStore(
         }
       }
 
-      return SharedStoreIsolateAuxiliary(id, sharedReference._serverPort);
+      return SharedStoreIsolateAuxiliary(id, sharedReference.serverPort);
     } else {
       if (prev != null) return prev;
 
@@ -479,11 +487,11 @@ SharedMap<K, V> createSharedMap<K, V>(
 
       var sharedStore = SharedStoreIsolate._instances[sharedStoreID]?.target ??
           SharedStoreIsolateAuxiliary(
-              sharedStoreID, sharedStoreReference._serverPort);
+              sharedStoreID, sharedStoreReference.serverPort);
 
       var sharedMap = sharedStore._sharedMaps[id] ??=
           SharedMapIsolateAuxiliary<K, V>(
-              sharedStore, id, sharedReference._serverPort);
+              sharedStore, id, sharedReference.serverPort);
       return sharedMap as SharedMap<K, V>;
     } else if (sharedReference is generic.SharedMapReferenceGeneric) {
       return generic.createSharedMap(

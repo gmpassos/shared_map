@@ -5,7 +5,8 @@ import 'shared_object.dart';
 import 'shared_reference.dart';
 
 /// A [SharedObject] implementation through [Isolate]s.
-abstract class SharedObjectIsolate implements SharedObject, ReferenceableType {
+abstract class SharedObjectIsolate<R extends SharedReferenceIsolate>
+    implements SharedObjectReferenceable<R> {
   @override
   final String id;
 
@@ -20,8 +21,8 @@ abstract class SharedObjectIsolate implements SharedObject, ReferenceableType {
 }
 
 /// The main [SharedObjectIsolate] implementation.
-abstract class SharedObjectIsolateMain extends SharedObjectIsolate
-    with SharedObjectMain {
+abstract class SharedObjectIsolateMain<R extends SharedReferenceIsolate>
+    extends SharedObjectIsolate<R> with SharedObjectMain {
   SharedObjectIsolateMain(super.id);
 
   @override
@@ -37,8 +38,8 @@ abstract class SharedObjectIsolateMain extends SharedObjectIsolate
 }
 
 /// The auxiliary [SharedObjectIsolate] implementation.
-abstract class SharedObjectIsolateAuxiliary<R> extends SharedObjectIsolate
-    with SharedObjectAuxiliary {
+abstract class SharedObjectIsolateAuxiliary<REF extends SharedReferenceIsolate,
+    R> extends SharedObjectIsolate<REF> with SharedObjectAuxiliary {
   SharedObjectIsolateAuxiliary(super.id);
 
   SendPort get serverPort;
@@ -103,4 +104,21 @@ class SharedObjectIsolateResponseMessage<R> extends SharedObjectIsolateMessage {
 
   SharedObjectIsolateResponseMessage<T> cast<T>() =>
       this as SharedObjectIsolateResponseMessage<T>;
+}
+
+/// Base class for a [SharedReference] that works through [Isolate]s.
+abstract class SharedReferenceIsolate extends SharedReference {
+  /// The port for the "server" that responds to requests from the auxiliary
+  /// instance [Isolate], processed by the main instance [Isolate].
+  final SendPort serverPort;
+
+  SharedReferenceIsolate(super.id, this.serverPort);
+
+  @override
+  Map<String, dynamic> toJson() => {
+        'id': id,
+      };
+
+  @override
+  String toString() => 'SharedReference${toJson()}';
 }

@@ -3,6 +3,7 @@
 import 'dart:isolate';
 
 import 'package:shared_map/shared_map.dart';
+import 'package:shared_map/src/shared_map_isolate.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -23,6 +24,25 @@ void main() {
 
       var va3 = await Isolate.run<int?>(() async {
         var m2 = SharedMap<String, int>.fromSharedReference(sharedMapReference);
+
+        var sharedReference2 = m2.sharedReference();
+        if (sharedReference2.id != sharedMapReference.id) {
+          throw StateError("Invalid `sharedReference`");
+        }
+
+        if (sharedMapReference is SharedMapReferenceIsolate &&
+            sharedReference2 is SharedMapReferenceIsolate) {
+          if (!identical(
+              sharedMapReference.serverPort, sharedReference2.serverPort)) {
+            throw StateError("Invalid `sharedReference.serverPort`");
+          }
+        }
+
+        if (sharedReference2.sharedStoreReference.id !=
+            sharedMapReference.sharedStoreReference.id) {
+          throw StateError("Invalid `sharedReference.sharedStoreReference`");
+        }
+
         var va3 = await m2.get('a');
         return va3;
       });

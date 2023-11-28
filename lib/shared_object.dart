@@ -2,4 +2,5 @@
 library shared_map.object;
 
 export 'src/shared_object.dart';
+export 'src/shared_object_field.dart';
 export 'src/shared_reference.dart';

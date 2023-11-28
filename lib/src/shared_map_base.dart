@@ -405,7 +405,7 @@ class SharedStoreField extends SharedObject {
   /// The [SharedStore] of this instance. This [SharedStore] will be
   /// automatically shared among `Isolate` copies.
   ///
-  /// See [isIsolateCopy].
+  /// See [isAuxiliaryInstance].
   SharedStore get sharedStore {
     _setupInstance();
 
@@ -606,7 +606,7 @@ class SharedMapField<K, V> extends SharedObject {
   /// The [SharedMap] of this instance. This [SharedMap] will be
   /// automatically shared among `Isolate` copies.
   ///
-  /// See [isIsolateCopy].
+  /// See [isAuxiliaryInstance].
   FutureOr<SharedMap<K, V>> get sharedMap {
     var sharedMap = _setupInstance();
     return sharedMap;
