@@ -29,6 +29,66 @@ abstract class ReferenceableType {
     return 'UUID-$n1-$n2-$n3-$n4-$n5-$n6-$c';
   }
 
+  static final Map<Type, Map<String, WeakReference<ReferenceableType>>>
+      _typesInstances = {};
+
+  /// Returns a [T] [ReferenceableType] with [id], or creates in case [ifAbsent] is provided.
+  static T? getSharedObject<T extends ReferenceableType>(String id,
+      {T? Function(String id)? ifAbsent}) {
+    var t = T;
+    var instances = (_typesInstances[t] ??= <String, WeakReference<T>>{})
+        as Map<String, WeakReference<T>>;
+
+    T? o;
+
+    var ref = instances[id];
+    if (ref != null) {
+      o = ref.target;
+    }
+
+    if (o == null) {
+      if (ifAbsent != null) {
+        o = ifAbsent(id);
+        if (o != null) {
+          instances[id] = WeakReference(o);
+        } else if (ref != null) {
+          instances.remove(id);
+        }
+      } else if (ref != null) {
+        instances.remove(id);
+      }
+    }
+
+    return o;
+  }
+
+  /// Returns a [T] [ReferenceableType] with [id], or creates with [ifAbsent] function.
+  static T getOrCreateSharedObject<T extends ReferenceableType>(String id,
+      {required T Function(String id) ifAbsent}) {
+    var t = T;
+    var instances = (_typesInstances[t] ??= <String, WeakReference<T>>{})
+        as Map<String, WeakReference<T>>;
+
+    var o = instances[id]?.target;
+
+    if (o == null) {
+      o = ifAbsent(id);
+      instances[id] = WeakReference(o);
+    }
+
+    return o;
+  }
+
+  /// Removes and returns a [T] [ReferenceableType] with [id].
+  static T? disposeSharedObject<T extends ReferenceableType>(String id) {
+    var t = T;
+    var instances = (_typesInstances[t] ??= <String, WeakReference<T>>{})
+        as Map<String, WeakReference<T>>;
+
+    var o = instances.remove(id)?.target;
+    return o;
+  }
+
   /// The ID of the referenceable instance.
   String get id;
 

@@ -101,16 +101,12 @@ void main() {
 }
 
 abstract class MyCounter implements SharedObjectIsolate<MyCounterReference> {
-  static final Map<String, MyCounter> _instances = {};
+  factory MyCounter(String id) => ReferenceableType.getOrCreateSharedObject(id,
+      ifAbsent: MyCounterMain.new);
 
-  factory MyCounter(String id) {
-    return _instances[id] ??= MyCounterMain(id);
-  }
-
-  factory MyCounter.fromReference(MyCounterReference reference) {
-    var id = reference.id;
-    return _instances[id] ??= MyCounterAuxiliary(id, reference.serverPort);
-  }
+  factory MyCounter.fromReference(MyCounterReference reference) =>
+      ReferenceableType.getOrCreateSharedObject(reference.id,
+          ifAbsent: (id) => MyCounterAuxiliary(id, reference.serverPort));
 
   factory MyCounter.from({MyCounterReference? reference, String? id}) {
     if (reference != null) {
@@ -183,6 +179,9 @@ class MyCounterMain extends SharedObjectIsolateMain<MyCounterReference>
 
   @override
   int increment([int amount = 1]) => _counter += amount;
+
+  @override
+  String toString() => 'MyCounterMain#$id{counter: $_counter}';
 }
 
 class MyCounterAuxiliary
@@ -205,6 +204,9 @@ class MyCounterAuxiliary
   @override
   Future<int> increment([int amount = 1]) =>
       sendRequestNotNull([MyCounterOperation.increment, amount]);
+
+  @override
+  String toString() => 'MyCounterAuxiliary#$id';
 }
 
 class MyCounterReference extends SharedReferenceIsolate {

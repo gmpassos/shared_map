@@ -6,6 +6,8 @@
 - New `SharedFieldInstanceHandler` and `SharedObjectField`.
 - `SharedStoreField`:
   - Now extends `SharedObjectField` to reuse `SharedObjectField` implementation.
+- `ReferenceableType`:
+  - Added `getSharedObject`, `getOrCreateSharedObject` and `disposeSharedObject`.
 - Improve documentation.
 
 ## 1.1.1
