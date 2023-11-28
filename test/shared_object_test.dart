@@ -92,6 +92,10 @@ void main() {
       });
 
       expect(n4, equals(208));
+
+      final field2 = MyCounterField.fromID(c1.id);
+
+      expect(identical(field2.sharedObject, c1), isTrue);
     });
   });
 }
@@ -106,6 +110,19 @@ abstract class MyCounter implements SharedObjectIsolate<MyCounterReference> {
   factory MyCounter.fromReference(MyCounterReference reference) {
     var id = reference.id;
     return _instances[id] ??= MyCounterAuxiliary(id, reference.serverPort);
+  }
+
+  factory MyCounter.from({MyCounterReference? reference, String? id}) {
+    if (reference != null) {
+      return MyCounter.fromReference(reference);
+    }
+
+    if (id != null) {
+      return MyCounter(id);
+    }
+
+    throw StateError(
+        "Null values for both `reference` and `id` parameters! Please provide at least one.");
   }
 
   FutureOr<int> get();
@@ -196,30 +213,17 @@ class MyCounterReference extends SharedReferenceIsolate {
 
 class MyCounterField
     extends SharedObjectField<MyCounterReference, MyCounter, MyCounterField> {
-  static MyCounterField _fieldInstantiator(String id) {
-    return instanceHandler.fromID(id);
-  }
-
-  static MyCounter _sharedObjectInstantiator(
-      {MyCounterReference? reference, String? id}) {
-    if (reference != null) {
-      return MyCounter.fromReference(reference);
-    }
-
-    if (id != null) {
-      return MyCounter(id);
-    }
-
-    throw StateError("Invalid parameters");
-  }
-
-  static final instanceHandler =
+  static final _instanceHandler =
       SharedFieldInstanceHandler<MyCounterReference, MyCounter, MyCounterField>(
-          _fieldInstantiator, _sharedObjectInstantiator);
+    fieldInstantiator: MyCounterField._fromID,
+    sharedObjectInstantiator: MyCounter.from,
+  );
 
-  MyCounterField.fromID(String id)
-      : super.fromID(id, instanceHandler: instanceHandler);
+  MyCounterField._fromID(String id)
+      : super.fromID(id, instanceHandler: _instanceHandler);
 
-  MyCounterField.fromSharedObject(MyCounter o)
-      : super.fromSharedObject(o, instanceHandler: instanceHandler);
+  factory MyCounterField.fromID(String id) => _instanceHandler.fromID(id);
+
+  factory MyCounterField.fromSharedObject(MyCounter o) =>
+      _instanceHandler.fromSharedObject(o);
 }
