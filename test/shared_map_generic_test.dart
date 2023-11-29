@@ -112,7 +112,13 @@ void _doTest<K, V, T extends SharedMap<K, V>>(
         var store2 = storeField1.sharedStore;
 
         var sharedMapField =
-            SharedMapField.from(sharedMapReference: m1.sharedReference());
+            SharedMapField<K, V>.from(sharedMapReference: m1.sharedReference());
+
+        if (storeField1 is NotSharedStoreField) {
+          expect(sharedMapField, isA<NotSharedMapField<K, V>>());
+        } else {
+          expect(sharedMapField, isA<SharedMapField<K, V>>());
+        }
 
         var m2 = await store2.getSharedMap<String, int>('m1');
         var m3 = sharedMapField.sharedMap;

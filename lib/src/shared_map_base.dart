@@ -436,10 +436,15 @@ class SharedMapField<K, V> extends SharedObjectField<SharedMapReference,
               onRemove)
           .fromID(id);
 
-  factory SharedMapField.fromSharedMap(SharedMap<K, V> o) =>
-      _instanceHandler<K, V>(
-              o.sharedStore.sharedReference(), o.onPut, o.onRemove)
-          .fromSharedObject(o);
+  factory SharedMapField.fromSharedMap(SharedMap<K, V> o) {
+    if (o is NotSharedMap<K, V>) {
+      return NotSharedMapField<K, V>(o);
+    }
+
+    return _instanceHandler<K, V>(
+            o.sharedStore.sharedReference(), o.onPut, o.onRemove)
+        .fromSharedObject(o);
+  }
 
   factory SharedMapField.from({
     SharedMapField<K, V>? sharedMapField,
