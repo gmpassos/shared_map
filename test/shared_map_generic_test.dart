@@ -102,6 +102,32 @@ void _doTest<K, V, T extends SharedMap<K, V>>(
 
       // Finish NotSharedMap test:
       if (m1 is NotSharedMap) {
+        {
+          var cached2 = await _asFuture(m1).cached();
+
+          expect(identical(cached2, cached1), isTrue);
+          expect(await cached2.get('a'), equals(111));
+
+          expect(await _asFuture(cached2).get('a'), equals(111));
+          expect(await _asFutureOr(cached2).get('a'), equals(111));
+
+          expect(await cached2.putIfAbsent('a', 5555), equals(111));
+
+          expect(await _asFuture(cached2).putIfAbsent('a', 5555), equals(111));
+          expect(
+              await _asFutureOr(cached2).putIfAbsent('a', 5555), equals(111));
+
+          expect(await cached2.put('a', 331), equals(331));
+          expect(await cached2.get('a'), equals(331));
+
+          expect(await _asFuture(cached2).put('a', 332), equals(332));
+          expect(await cached2.get('a'), equals(332));
+
+          expect(await _asFutureOr(cached2).put('a', 333), equals(333));
+
+          expect(await cached2.putIfAbsent('a', 6666), equals(333));
+        }
+
         return;
       }
 
