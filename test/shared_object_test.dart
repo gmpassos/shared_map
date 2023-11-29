@@ -101,12 +101,27 @@ void main() {
 }
 
 abstract class MyCounter implements SharedObjectIsolate<MyCounterReference> {
-  factory MyCounter(String id) => ReferenceableType.getOrCreateSharedObject(id,
-      ifAbsent: _MyCounterMain.new);
+  factory MyCounter(String id) {
+    var counter = ReferenceableType.getOrCreateSharedObject<MyCounter>(id,
+        ifAbsent: _MyCounterMain.new);
 
-  factory MyCounter.fromReference(MyCounterReference reference) =>
-      ReferenceableType.getOrCreateSharedObject(reference.id,
-          ifAbsent: (id) => _MyCounterAuxiliary(id, reference.serverPort));
+    var counter2 = ReferenceableType.getSharedObject<MyCounter>(id);
+
+    assert(identical(counter2, counter));
+
+    return counter;
+  }
+
+  factory MyCounter.fromReference(MyCounterReference reference) {
+    var counter = ReferenceableType.getOrCreateSharedObject<MyCounter>(
+        reference.id,
+        ifAbsent: (id) => _MyCounterAuxiliary(id, reference.serverPort));
+
+    assert(identical(
+        ReferenceableType.getSharedObject<MyCounter>(reference.id), counter));
+
+    return counter;
+  }
 
   factory MyCounter.from({MyCounterReference? reference, String? id}) {
     if (reference != null) {
