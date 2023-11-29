@@ -473,11 +473,19 @@ void main() {
       var va5 = await Isolate.run<int?>(() async {
         var m3 = sharedMapField.sharedMap;
 
+        var cached = sharedMapField.sharedMapCached();
+
         var va5 = await m3.get('a');
         if (va5 != 111) throw StateError("Expected: 111 ; got: $va5");
 
+        var vaCached5 = await cached.get('a');
+        if (vaCached5 != 111) throw StateError("Expected: 111 ; got: $va5");
+
         va5 = await m3.put('a', 11111);
         if (va5 != 11111) throw StateError("Expected: 11111 ; got: $va5");
+
+        vaCached5 = await cached.get('a');
+        if (vaCached5 != 111) throw StateError("Expected: 111 ; got: $va5");
 
         return va5;
       });
