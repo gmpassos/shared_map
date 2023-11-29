@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'not_shared_map.dart';
 import 'shared_map_base.dart';
 import 'shared_map_cached.dart';
@@ -38,7 +36,7 @@ class SharedStoreGeneric implements SharedStore {
   final Map<String, SharedMapGeneric> _sharedMaps = {};
 
   @override
-  FutureOr<SharedMap<K, V>?> getSharedMap<K, V>(
+  SharedMap<K, V>? getSharedMap<K, V>(
     String id, {
     SharedMapEntryCallback<K, V>? onPut,
     SharedMapEntryCallback<K, V>? onRemove,

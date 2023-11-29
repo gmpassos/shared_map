@@ -503,5 +503,14 @@ SharedMap<K, V> createSharedMap<K, V>(
     return sharedMap as SharedMap<K, V>;
   }
 
+  if (id != null && sharedStore != null) {
+    var sharedMap = sharedStore.getSharedMap<K, V>(id);
+    if (sharedMap is SharedMap<K, V>) {
+      return sharedMap;
+    }
+
+    throw StateError("Can't get `SharedMap<$K,$V>` with id: $id");
+  }
+
   throw StateError("Unexpected `SharedMapReference` type: $sharedReference");
 }

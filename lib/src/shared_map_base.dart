@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'not_shared_map.dart';
 import 'shared_map_cached.dart';
-import 'shared_map_generic.dart' as generic;
 import 'shared_map_generic.dart'
     if (dart.library.isolate) 'shared_map_isolate.dart';
+import 'shared_map_generic.dart' as generic;
 import 'shared_object_field.dart';
 import 'shared_reference.dart';
 import 'utils.dart';
@@ -446,6 +446,9 @@ class SharedMapField<K, V> extends SharedObjectField<SharedMapReference,
     SharedMapReference? sharedMapReference,
     SharedMap<K, V>? sharedMap,
     String? sharedMapID,
+    SharedStore? sharedStore,
+    SharedStoreReference? sharedStoreReference,
+    String? sharedStoreID,
     SharedMapEntryCallback<K, V>? onPut,
     SharedMapEntryCallback<K, V>? onRemove,
   }) {
@@ -454,6 +457,9 @@ class SharedMapField<K, V> extends SharedObjectField<SharedMapReference,
             sharedMapReference: sharedMapReference,
             sharedMap: sharedMap,
             sharedMapID: sharedMapID,
+            sharedStore: sharedStore,
+            sharedStoreReference: sharedStoreReference,
+            sharedStoreID: sharedStoreID,
             onPut: onPut,
             onRemove: onRemove) ??
         (throw MultiNullArguments(
