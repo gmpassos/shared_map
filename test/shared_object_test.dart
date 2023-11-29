@@ -102,11 +102,11 @@ void main() {
 
 abstract class MyCounter implements SharedObjectIsolate<MyCounterReference> {
   factory MyCounter(String id) => ReferenceableType.getOrCreateSharedObject(id,
-      ifAbsent: MyCounterMain.new);
+      ifAbsent: _MyCounterMain.new);
 
   factory MyCounter.fromReference(MyCounterReference reference) =>
       ReferenceableType.getOrCreateSharedObject(reference.id,
-          ifAbsent: (id) => MyCounterAuxiliary(id, reference.serverPort));
+          ifAbsent: (id) => _MyCounterAuxiliary(id, reference.serverPort));
 
   factory MyCounter.from({MyCounterReference? reference, String? id}) {
     if (reference != null) {
@@ -134,11 +134,11 @@ enum MyCounterOperation {
   increment,
 }
 
-class MyCounterMain extends SharedObjectIsolateMain<MyCounterReference>
+class _MyCounterMain extends SharedObjectIsolateMain<MyCounterReference>
     implements MyCounter {
   int _counter;
 
-  MyCounterMain(super.id, {int counter = 0}) : _counter = counter;
+  _MyCounterMain(super.id, {int counter = 0}) : _counter = counter;
 
   @override
   MyCounterReference sharedReference() =>
@@ -184,13 +184,13 @@ class MyCounterMain extends SharedObjectIsolateMain<MyCounterReference>
   String toString() => 'MyCounterMain#$id{counter: $_counter}';
 }
 
-class MyCounterAuxiliary
+class _MyCounterAuxiliary
     extends SharedObjectIsolateAuxiliary<MyCounterReference, int>
     implements MyCounter {
   @override
   SendPort serverPort;
 
-  MyCounterAuxiliary(super.id, this.serverPort);
+  _MyCounterAuxiliary(super.id, this.serverPort);
 
   @override
   MyCounterReference sharedReference() => MyCounterReference(id, serverPort);

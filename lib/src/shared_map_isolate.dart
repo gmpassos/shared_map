@@ -7,8 +7,8 @@ import 'shared_map_cached.dart';
 import 'shared_map_generic.dart' as generic;
 import 'shared_object_isolate.dart';
 
-mixin SharedStoreIsolate implements SharedStore {
-  static final Map<String, WeakReference<SharedStoreIsolate>> _instances = {};
+mixin _SharedStoreIsolate implements SharedStore {
+  static final Map<String, WeakReference<_SharedStoreIsolate>> _instances = {};
 
   void _setupInstance() {
     var prev = _instances[id];
@@ -18,13 +18,13 @@ mixin SharedStoreIsolate implements SharedStore {
     _instances[id] = WeakReference(this);
   }
 
-  final Map<String, SharedMapIsolate> _sharedMaps = {};
+  final Map<String, _SharedMapIsolate> _sharedMaps = {};
 }
 
-class SharedStoreIsolateMain
+class _SharedStoreIsolateMain
     extends SharedObjectIsolateMain<SharedStoreReferenceIsolate>
-    with SharedStoreIsolate {
-  SharedStoreIsolateMain(String id) : super(id) {
+    with _SharedStoreIsolate {
+  _SharedStoreIsolateMain(String id) : super(id) {
     _setupInstance();
   }
 
@@ -74,13 +74,13 @@ class SharedStoreIsolateMain
 
 typedef _CallCasted<K, V> = Object? Function(Object? Function<K1, V1>() f);
 
-class SharedStoreIsolateAuxiliary
+class _SharedStoreIsolateAuxiliary
     extends SharedObjectIsolateAuxiliary<SharedStoreReferenceIsolate, dynamic>
-    with SharedStoreIsolate {
+    with _SharedStoreIsolate {
   @override
   final SendPort serverPort;
 
-  SharedStoreIsolateAuxiliary(super.id, this.serverPort) {
+  _SharedStoreIsolateAuxiliary(super.id, this.serverPort) {
     _setupInstance();
   }
 
@@ -111,7 +111,7 @@ class SharedStoreIsolateAuxiliary
   }
 
   /// Generates the lambda [Function] that will be passed to the
-  /// [SharedMapIsolateMain] to allow the correct casted call to [getSharedMap]`<K,V>()`.
+  /// [_SharedMapIsolateMain] to allow the correct casted call to [getSharedMap]`<K,V>()`.
   _CallCasted<K, V> _buildCallCasted<K, V>() => (f) => f<K, V>();
 
   @override
@@ -123,7 +123,7 @@ class SharedStoreIsolateAuxiliary
       'SharedStoreIsolateAuxiliary[$id]{sharedMaps: ${_sharedMaps.length}}';
 }
 
-mixin SharedMapIsolate<K, V>
+mixin _SharedMapIsolate<K, V>
     implements SharedMap<K, V>, SharedObjectIsolate<SharedMapReferenceIsolate> {
   @override
   SharedMapEntryCallback<K, V>? onPut;
@@ -158,16 +158,16 @@ mixin SharedMapIsolate<K, V>
   }
 }
 
-class SharedMapIsolateMain<K, V>
+class _SharedMapIsolateMain<K, V>
     extends SharedObjectIsolateMain<SharedMapReferenceIsolate>
-    with SharedMapIsolate<K, V>
+    with _SharedMapIsolate<K, V>
     implements SharedMapSync<K, V> {
   @override
   final SharedStore sharedStore;
 
   final Map<K, V> _entries;
 
-  SharedMapIsolateMain(this.sharedStore, super.id) : _entries = {};
+  _SharedMapIsolateMain(this.sharedStore, super.id) : _entries = {};
 
   @override
   void onReceiveIsolateRequestMessage(SharedObjectIsolateRequestMessage m) {
@@ -334,15 +334,15 @@ class SharedMapIsolateMain<K, V>
       'SharedMapIsolateMain<$K,$V>[$id@${sharedStore.id}]{entries: ${_entries.length}}';
 }
 
-class SharedMapIsolateAuxiliary<K, V>
+class _SharedMapIsolateAuxiliary<K, V>
     extends SharedObjectIsolateAuxiliary<SharedMapReferenceIsolate, dynamic>
-    with SharedMapIsolate<K, V> {
+    with _SharedMapIsolate<K, V> {
   @override
   final SharedStore sharedStore;
   @override
   final SendPort serverPort;
 
-  SharedMapIsolateAuxiliary(this.sharedStore, super.id, this.serverPort);
+  _SharedMapIsolateAuxiliary(this.sharedStore, super.id, this.serverPort);
 
   @override
   Future<V?> get(K key) => sendRequest([SharedMapOperation.get, key]);
@@ -438,20 +438,20 @@ SharedStore createSharedStore(
 
     id ??= sharedReference.id;
 
-    var prev = SharedStoreIsolate._instances[id]?.target;
+    var prev = _SharedStoreIsolate._instances[id]?.target;
 
     if (sharedReference is SharedStoreReferenceIsolate) {
       if (prev != null) {
-        if (prev is SharedStoreIsolateMain) {
+        if (prev is _SharedStoreIsolateMain) {
           if (prev.sharedReference().serverPort == sharedReference.serverPort) {
             return prev;
           }
-        } else if (prev is SharedStoreIsolateAuxiliary) {
+        } else if (prev is _SharedStoreIsolateAuxiliary) {
           return prev;
         }
       }
 
-      return SharedStoreIsolateAuxiliary(id, sharedReference.serverPort);
+      return _SharedStoreIsolateAuxiliary(id, sharedReference.serverPort);
     } else {
       if (prev != null) return prev;
 
@@ -463,10 +463,10 @@ SharedStore createSharedStore(
     throw StateError(
         "Unexpected `SharedStoreReference` type: $sharedReference");
   } else {
-    var prev = SharedStoreIsolate._instances[id!]?.target;
+    var prev = _SharedStoreIsolate._instances[id!]?.target;
     if (prev != null) return prev;
 
-    return SharedStoreIsolateMain(id);
+    return _SharedStoreIsolateMain(id);
   }
 }
 
@@ -485,21 +485,21 @@ SharedMap<K, V> createSharedMap<K, V>(
 
       var sharedStoreID = sharedStoreReference.id;
 
-      var sharedStore = SharedStoreIsolate._instances[sharedStoreID]?.target ??
-          SharedStoreIsolateAuxiliary(
+      var sharedStore = _SharedStoreIsolate._instances[sharedStoreID]?.target ??
+          _SharedStoreIsolateAuxiliary(
               sharedStoreID, sharedStoreReference.serverPort);
 
       var sharedMap = sharedStore._sharedMaps[id] ??=
-          SharedMapIsolateAuxiliary<K, V>(
+          _SharedMapIsolateAuxiliary<K, V>(
               sharedStore, id, sharedReference.serverPort);
       return sharedMap as SharedMap<K, V>;
     } else if (sharedReference is generic.SharedMapReferenceGeneric) {
       return generic.createSharedMap(
           sharedStore: sharedStore, id: id, sharedReference: sharedReference);
     }
-  } else if (sharedStore is SharedStoreIsolate) {
+  } else if (sharedStore is _SharedStoreIsolate) {
     var sharedMap = sharedStore._sharedMaps[id!] ??=
-        SharedMapIsolateMain<K, V>(sharedStore, id);
+        _SharedMapIsolateMain<K, V>(sharedStore, id);
     return sharedMap as SharedMap<K, V>;
   }
 
