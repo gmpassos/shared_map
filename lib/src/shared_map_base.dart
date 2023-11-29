@@ -4,9 +4,9 @@ import 'not_shared_map.dart';
 import 'shared_map_cached.dart';
 import 'shared_map_generic.dart'
     if (dart.library.isolate) 'shared_map_isolate.dart';
-import 'shared_object.dart';
 import 'shared_object_field.dart';
 import 'shared_reference.dart';
+import 'utils.dart';
 
 typedef SharedStoreProvider = FutureOr<SharedStore?> Function(String id);
 typedef SharedStoreProviderSync = SharedStore? Function(String id);
@@ -41,8 +41,7 @@ abstract class SharedStore extends ReferenceableType {
       return SharedStore(id);
     }
 
-    throw StateError(
-        "Null values for both `reference` and `id` parameters! Please provide at least one.");
+    throw MultiNullArguments(['reference', 'id']);
   }
 
   /// Returns a [SharedMap] with [id] in this [SharedStore] instance.
@@ -111,6 +110,25 @@ abstract class SharedMap<K, V> extends ReferenceableType {
   /// Creates a [SharedMap] from [sharedReference].
   factory SharedMap.fromSharedReference(SharedMapReference sharedReference) {
     return createSharedMap(sharedReference: sharedReference);
+  }
+
+  /// Creates a [SharedMap] from [reference] or [id].
+  factory SharedMap.from(
+      {SharedMapReference? reference,
+      String? id,
+      SharedStoreReference? sharedStoreReference,
+      String? sharedStoreID}) {
+    if (reference != null) {
+      return SharedMap.fromSharedReference(reference);
+    }
+
+    if (id != null) {
+      var store =
+          SharedStore.from(reference: sharedStoreReference, id: sharedStoreID);
+      return SharedMap(store, id);
+    }
+
+    throw MultiNullArguments(['reference', 'id']);
   }
 
   /// The [SharedStore] where this instance is stored/handled.
@@ -292,8 +310,12 @@ class SharedStoreField extends SharedObjectField<SharedStoreReference,
             sharedStore: sharedStore,
             sharedStoreID: sharedStoreID,
             storeProvider: storeProvider) ??
-        (throw ArgumentError(
-            "Null `sharedStoreField`, `sharedStore` and `sharedStoreID`. Please provide one of them."));
+        (throw MultiNullArguments([
+          'sharedStoreField',
+          'sharedStoreReference',
+          'sharedStore',
+          'sharedStoreID'
+        ]));
   }
 
   static SharedStoreField? tryFrom(
@@ -340,42 +362,94 @@ class SharedStoreField extends SharedObjectField<SharedStoreReference,
   SharedStore get sharedStore => sharedObject;
 }
 
-class SharedMapField<K, V> extends SharedObject {
-  factory SharedMapField.fromSharedMap(
-    SharedMap<K, V> sharedMap, {
+/// A [SharedStore] field/wrapper. This will handle the [SharedStore] in.
+class SharedMapField<K, V> extends SharedObjectField<SharedMapReference,
+    SharedMap<K, V>, SharedMapField<K, V>> {
+  /// Resolves the [SharedFieldInstanceHandler] for each [SharedStore] of [sharedStoreReference].
+  static SharedFieldInstanceHandler<SharedMapReference, SharedMap<K, V>,
+      SharedMapField<K, V>> _instanceHandler<K, V>(
+    SharedStoreReference sharedStoreReference,
     SharedMapEntryCallback<K, V>? onPut,
     SharedMapEntryCallback<K, V>? onRemove,
-  }) {
-    if (sharedMap is NotSharedMap) {
-      var notSharedMap = sharedMap as NotSharedMap<K, V>;
+  ) =>
+      SharedFieldInstanceHandler(
+        fieldInstantiator: (id) =>
+            SharedMapField._fromID(id, sharedStoreReference, onPut, onRemove),
+        sharedObjectInstantiator: ({reference, id}) => SharedMap.from(
+            reference: reference,
+            id: id,
+            sharedStoreReference: sharedStoreReference)
+          ..setCallbacks(onPut: onPut, onRemove: onRemove),
+        group: sharedStoreReference.id,
+      );
 
-      notSharedMap.setCallbacksDynamic<K, V>(onPut: onPut, onRemove: onRemove);
+  final SharedStoreField _sharedStoreField;
 
-      return NotSharedMapField(notSharedMap);
-    }
+  SharedMapField._fromID(
+    String id,
+    SharedStoreReference sharedStoreReference,
+    SharedMapEntryCallback<K, V>? onPut,
+    SharedMapEntryCallback<K, V>? onRemove,
+  )   : _sharedStoreField =
+            SharedStoreField.from(sharedStoreReference: sharedStoreReference),
+        super.fromID(id,
+            instanceHandler:
+                _instanceHandler(sharedStoreReference, onPut, onRemove));
 
-    var o = SharedMapField<K, V>(
-      sharedMap.id,
-      sharedStore: sharedMap.sharedStore,
-      onPut: onPut,
-      onRemove: onRemove,
-    );
+  factory SharedMapField(
+    String id, {
+    SharedStore? sharedStore,
+    SharedStoreReference? sharedStoreReference,
+    String? sharedStoreID,
+    SharedMapEntryCallback<K, V>? onPut,
+    SharedMapEntryCallback<K, V>? onRemove,
+  }) =>
+      _instanceHandler<K, V>(
+              sharedStoreReference ??
+                  sharedStore?.sharedReference() ??
+                  (sharedStoreID != null
+                      ? SharedStore(sharedStoreID).sharedReference()
+                      : null) ??
+                  (throw MultiNullArguments([
+                    'sharedStore',
+                    'sharedStoreReference',
+                    'sharedStoreID'
+                  ])),
+              onPut,
+              onRemove)
+          .fromID(id);
 
-    if (!identical(sharedMap, o.sharedMap)) {
-      throw StateError(
-          "Parameter `sharedMap` instance is NOT the same of `SharedMapField.sharedMap`> $sharedMap != ${o.sharedMap}");
-    }
-
-    return o;
-  }
+  factory SharedMapField.fromSharedMap(SharedMap<K, V> o) =>
+      _instanceHandler<K, V>(
+              o.sharedStore.sharedReference(), o.onPut, o.onRemove)
+          .fromSharedObject(o);
 
   factory SharedMapField.from({
     SharedMapField<K, V>? sharedMapField,
     SharedMapReference? sharedMapReference,
     SharedMap<K, V>? sharedMap,
     String? sharedMapID,
-    SharedStoreField? sharedStoreField,
+    SharedMapEntryCallback<K, V>? onPut,
+    SharedMapEntryCallback<K, V>? onRemove,
+  }) {
+    return tryFrom(
+            sharedMapField: sharedMapField,
+            sharedMapReference: sharedMapReference,
+            sharedMap: sharedMap,
+            sharedMapID: sharedMapID,
+            onPut: onPut,
+            onRemove: onRemove) ??
+        (throw MultiNullArguments(
+            ['sharedStoreField', 'sharedStore', 'sharedStoreID']));
+  }
+
+  static SharedMapField<K, V>? tryFrom<K, V>({
+    SharedMapField<K, V>? sharedMapField,
+    SharedMapReference? sharedMapReference,
+    SharedMap<K, V>? sharedMap,
+    String? sharedMapID,
     SharedStore? sharedStore,
+    SharedStoreReference? sharedStoreReference,
     String? sharedStoreID,
     SharedMapEntryCallback<K, V>? onPut,
     SharedMapEntryCallback<K, V>? onRemove,
@@ -386,182 +460,41 @@ class SharedMapField<K, V> extends SharedObject {
 
     if (sharedMapReference != null) {
       if (sharedMapReference is NotSharedMapReference) {
-        sharedMap = sharedMapReference.notSharedMap as NotSharedMap<K, V>;
+        sharedMap ??= sharedMapReference.notSharedMap as SharedMap<K, V>;
       } else {
-        sharedMap ??= SharedMap<K, V>.fromSharedReference(sharedMapReference)
-          ..setCallbacksDynamic<K, V>(onPut: onPut, onRemove: onRemove);
+        sharedMap ??= SharedMap.fromSharedReference(sharedMapReference);
       }
     }
 
     if (sharedMap != null) {
-      return SharedMapField.fromSharedMap(
-        sharedMap,
-        onPut: onPut,
-        onRemove: onRemove,
-      );
+      return SharedMapField.fromSharedMap(sharedMap);
     }
 
     if (sharedMapID != null) {
-      return SharedMapField(
-        sharedMapID,
-        sharedStoreField: sharedStoreField,
-        sharedStore: sharedStore,
-        sharedStoreID: sharedStoreID,
-        onPut: onPut,
-        onRemove: onRemove,
-      );
+      return SharedMapField(sharedMapID,
+          sharedStore: sharedStore,
+          sharedStoreReference: sharedStoreReference,
+          sharedStoreID: sharedStoreID,
+          onPut: onPut,
+          onRemove: onRemove);
     }
 
-    throw ArgumentError(
-        "Null `sharedMapField`, `sharedMap` and `sharedMapID`. Please provide one of them.");
-  }
-
-  final SharedStoreField _sharedStoreField;
-
-  /// The global ID of the [sharedMap].
-  final String sharedMapID;
-
-  SharedMapField(
-    this.sharedMapID, {
-    SharedStoreField? sharedStoreField,
-    SharedStoreReference? sharedStoreReference,
-    SharedStore? sharedStore,
-    String? sharedStoreID,
-    SharedMapEntryCallback<K, V>? onPut,
-    SharedMapEntryCallback<K, V>? onRemove,
-  }) : _sharedStoreField = SharedStoreField.from(
-            sharedStoreField: sharedStoreField,
-            sharedStoreReference: sharedStoreReference,
-            sharedStore: sharedStore,
-            sharedStoreID: sharedStoreID) {
-    _setupInstanceFromConstructor(
-      onPut: onPut,
-      onRemove: onRemove,
-    );
+    return null;
   }
 
   SharedStore get sharedStore => _sharedStoreField.sharedStore;
 
-  static final Expando<SharedMap> _sharedMapExpando = Expando();
-
-  SharedMapReference? _sharedMapReference;
-  Future<SharedMap<K, V>>? _resolvingSharedMap;
-
-  void _setupInstanceFromConstructor({
-    SharedMapEntryCallback<K, V>? onPut,
-    SharedMapEntryCallback<K, V>? onRemove,
-  }) {
-    assert(_sharedMapExpando[this] == null);
-    _resolveSharedMapFromStore(
-      onPut: onPut,
-      onRemove: onRemove,
-    );
-  }
-
-  FutureOr<SharedMap<K, V>> _setupInstance() {
-    var sharedMap = _sharedMapExpando[this] as SharedMap<K, V>?;
-    if (sharedMap != null) return sharedMap;
-
-    return _setupInstanceIsolateCopy();
-  }
-
-  bool _isolateCopy = false;
-
   @override
-  bool get isAuxiliaryInstance => _isolateCopy;
+  String get runtimeTypeName => 'SharedMapField';
 
-  FutureOr<SharedMap<K, V>> _setupInstanceIsolateCopy() {
-    assert(_sharedMapExpando[this] == null);
+  String get sharedMapID => sharedObjectID;
 
-    _isolateCopy = true;
-
-    var sharedMapReference = _sharedMapReference;
-
-    if (sharedMapReference != null) {
-      var sharedMap = SharedMap<K, V>.fromSharedReference(sharedMapReference);
-      _sharedMapExpando[this] = sharedMap;
-      return sharedMap;
-    } else {
-      return _resolveSharedMapFromStore();
-    }
-  }
-
-  FutureOr<SharedMap<K, V>> _resolveSharedMapFromStore({
-    SharedMapEntryCallback<K, V>? onPut,
-    SharedMapEntryCallback<K, V>? onRemove,
-  }) {
-    var resolvingSharedMap = _resolvingSharedMap;
-    if (resolvingSharedMap != null) return resolvingSharedMap;
-
-    final sharedStore = this.sharedStore;
-
-    var sharedMapAsync = sharedStore.getSharedMap<K, V>(sharedMapID);
-
-    if (sharedMapAsync is Future<SharedMap<K, V>?>) {
-      return _resolvingSharedMap = sharedMapAsync.then((sharedMap) {
-        sharedMap ??= SharedMap<K, V>(sharedStore, sharedMapID);
-        _sharedMapExpando[this] = sharedMap;
-        _sharedMapReference = sharedMap.sharedReference();
-        _resolvingSharedMap = null;
-
-        sharedMap.setCallbacksDynamic<K, V>(onPut: onPut, onRemove: onRemove);
-
-        return sharedMap;
-      });
-    } else {
-      var sharedMap =
-          sharedMapAsync ?? SharedMap<K, V>(sharedStore, sharedMapID);
-      _sharedMapExpando[this] = sharedMap;
-      _sharedMapReference = sharedMap.sharedReference();
-
-      sharedMap.setCallbacksDynamic<K, V>(onPut: onPut, onRemove: onRemove);
-
-      return sharedMap;
-    }
-  }
-
-  /// The [SharedMap] of this instance. This [SharedMap] will be
-  /// automatically shared among `Isolate` copies.
-  ///
-  /// See [isAuxiliaryInstance].
-  FutureOr<SharedMap<K, V>> get sharedMap {
-    var sharedMap = _setupInstance();
-    return sharedMap;
-  }
-
-  /// Synchronized alias to [sharedMapSync].
-  /// - Throws a [StateError] if [sharedMap] returns a [Future].
-  SharedMap<K, V> get sharedMapSync {
-    var sharedMap = this.sharedMap;
-    if (sharedMap is! SharedMap<K, V>) {
-      throw StateError(
-          "`sharedMap` not resolved yet! Use the asynchronous getter `sharedMap`.");
-    }
-    return sharedMap;
-  }
-
-  /// Tries a synchronized resolution of [sharedMap] or returns `null`.
-  SharedMap<K, V>? get trySharedMapSync {
-    var sharedMap = this.sharedMap;
-    if (sharedMap is! SharedMap<K, V>) {
-      return null;
-    }
-    return sharedMap;
-  }
+  SharedMap<K, V> get sharedMap => sharedObject;
 
   /// Returns a cached version of [sharedMap].
   /// See [SharedMap.cached].
   FutureOr<SharedMap<K, V>> sharedMapCached({Duration? timeout}) {
     var sharedMap = this.sharedMap;
-
-    if (sharedMap is Future<SharedMap<K, V>>) {
-      return sharedMap.then((sharedMap) => sharedMap.cached(timeout: timeout));
-    } else {
-      return sharedMap.cached(timeout: timeout);
-    }
+    return sharedMap.cached(timeout: timeout);
   }
-
-  @override
-  String toString() =>
-      'SharedMapField#${_sharedStoreField.sharedStoreID}->$sharedMapID${isAuxiliaryInstance ? '(aux)' : ''}';
 }

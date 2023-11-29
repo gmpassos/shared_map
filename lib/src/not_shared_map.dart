@@ -312,6 +312,9 @@ class NotSharedStoreField extends NotSharedObject implements SharedStoreField {
 
   @override
   String get sharedObjectID => sharedStoreID;
+
+  @override
+  SharedStoreReference get sharedReference => _notSharedStore.sharedReference();
 }
 
 class NotSharedMapField<K, V> extends NotSharedObject
@@ -321,6 +324,18 @@ class NotSharedMapField<K, V> extends NotSharedObject
   NotSharedMapField(this._notSharedMap);
 
   @override
+  String get runtimeTypeName => 'NotSharedMapField';
+
+  @override
+  SharedMap<K, V> get sharedObject => sharedMap;
+
+  @override
+  String get sharedObjectID => sharedMapID;
+
+  @override
+  SharedMapReference get sharedReference => sharedMap.sharedReference();
+
+  @override
   String get sharedMapID => _notSharedMap.id;
 
   @override
@@ -328,12 +343,6 @@ class NotSharedMapField<K, V> extends NotSharedObject
 
   @override
   SharedMap<K, V> get sharedMap => _notSharedMap;
-
-  @override
-  SharedMap<K, V> get sharedMapSync => _notSharedMap;
-
-  @override
-  SharedMap<K, V>? get trySharedMapSync => _notSharedMap;
 
   @override
   SharedMap<K, V> sharedMapCached({Duration? timeout}) =>

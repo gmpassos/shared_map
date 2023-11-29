@@ -1,5 +1,6 @@
 import 'shared_object.dart';
 import 'shared_reference.dart';
+import 'utils.dart';
 
 /// [SharedObjectField] instantiator
 typedef SharedFieldInstantiator<R extends SharedReference,
@@ -14,16 +15,21 @@ typedef SharedObjectInstantiator<R extends SharedReference,
 /// Instance handler for a [SharedObjectField].
 class SharedFieldInstanceHandler<R extends SharedReference,
     O extends ReferenceableType, F extends SharedObjectField<R, O, F>> {
-  static final Map<Type, SharedFieldInstanceHandler> _instances = {};
+  static final Map<(Type, Object?), SharedFieldInstanceHandler> _instances = {};
 
   factory SharedFieldInstanceHandler(
       {required SharedFieldInstantiator<R, O, F> fieldInstantiator,
-      required SharedObjectInstantiator<R, O> sharedObjectInstantiator}) {
-    var fieldHandler = _instances[F] ??= SharedFieldInstanceHandler<R, O, F>._(
-        fieldInstantiator, sharedObjectInstantiator);
+      required SharedObjectInstantiator<R, O> sharedObjectInstantiator,
+      Object? group}) {
+    var fieldHandler = _instances[(F, group)] ??=
+        SharedFieldInstanceHandler<R, O, F>._(
+            fieldInstantiator, sharedObjectInstantiator,
+            group: group);
 
     return fieldHandler as SharedFieldInstanceHandler<R, O, F>;
   }
+
+  final Object? group;
 
   final Map<String, WeakReference<F>> _fieldsInstances = {};
 
@@ -32,7 +38,8 @@ class SharedFieldInstanceHandler<R extends SharedReference,
   final SharedObjectInstantiator<R, O> sharedObjectInstantiator;
 
   SharedFieldInstanceHandler._(
-      this.fieldInstantiator, this.sharedObjectInstantiator);
+      this.fieldInstantiator, this.sharedObjectInstantiator,
+      {this.group});
 
   /// Returns a cached [SharedObjectField] instance by [id].
   F? getInstanceByID(String id) {
@@ -78,8 +85,8 @@ class SharedFieldInstanceHandler<R extends SharedReference,
             reference: reference,
             sharedObject: sharedObject,
             id: id) ??
-        (throw ArgumentError(
-            "Null `reference`, `sharedObject` and `id`. Please provide one of them."));
+        (throw MultiNullArguments(
+            ['field', 'reference', 'sharedObject', 'id']));
   }
 
   F? tryFrom({F? field, R? reference, O? sharedObject, String? id}) {
@@ -112,15 +119,19 @@ abstract class SharedObjectField<
     F extends SharedObjectField<R, O, F>> extends SharedObject {
   final SharedFieldInstantiator<R, O, F> _fieldInstantiator;
   final SharedObjectInstantiator<R, O> _sharedObjectInstantiator;
+  final Object? _instanceHandlerGroup;
 
   /// The global ID of the [sharedObject].
   final String sharedObjectID;
 
-  SharedObjectField.fromID(this.sharedObjectID,
-      {SharedFieldInstanceHandler<R, O, F>? instanceHandler,
-      SharedFieldInstantiator<R, O, F>? fieldInstantiator,
-      SharedObjectInstantiator<R, O>? sharedObjectInstantiator})
-      : _fieldInstantiator = fieldInstantiator ??
+  SharedObjectField.fromID(
+    this.sharedObjectID, {
+    SharedFieldInstanceHandler<R, O, F>? instanceHandler,
+    SharedFieldInstantiator<R, O, F>? fieldInstantiator,
+    SharedObjectInstantiator<R, O>? sharedObjectInstantiator,
+    Object? instanceHandlerGroup,
+  })  : _instanceHandlerGroup = instanceHandlerGroup ?? instanceHandler?.group,
+        _fieldInstantiator = fieldInstantiator ??
             instanceHandler?.fieldInstantiator ??
             (throw ArgumentError.notNull('fieldInstantiator')),
         _sharedObjectInstantiator = sharedObjectInstantiator ??
@@ -136,12 +147,16 @@ abstract class SharedObjectField<
       (_instanceHandlerExpando[this] ??= SharedFieldInstanceHandler<R, O, F>(
         fieldInstantiator: _fieldInstantiator,
         sharedObjectInstantiator: _sharedObjectInstantiator,
+        group: _instanceHandlerGroup,
       )) as SharedFieldInstanceHandler<R, O, F>;
 
-  Map<String, WeakReference<F>> get _instances =>
+  Map<String, WeakReference<F>> get _fieldsInstances =>
       _instanceHandler._fieldsInstances;
 
-  R? _reference;
+  R? _sharedReference;
+
+  /// The [SharedReference] ([R]) of the [SharedObject].
+  R get sharedReference => _sharedReference!;
 
   void _setupInstanceFromConstructor() {
     final instanceHandler = _instanceHandler;
@@ -154,9 +169,9 @@ abstract class SharedObjectField<
 
     var o = instanceHandler._sharedObjectExpando[this] =
         instanceHandler.sharedObjectInstantiator(id: id);
-    _reference = o.sharedReference() as R;
+    _sharedReference = o.sharedReference() as R;
 
-    _instances[id] = WeakReference(this as F);
+    _fieldsInstances[id] = WeakReference(this as F);
   }
 
   void _setupInstance() {
@@ -188,14 +203,14 @@ abstract class SharedObjectField<
 
     _isolateCopy = true;
 
-    var reference = _reference ??
+    var reference = _sharedReference ??
         (throw StateError(
             "An `Isolate` copy should have `_reference` defined!"));
 
     var o = instanceHandler.sharedObjectInstantiator(reference: reference);
     instanceHandler._sharedObjectExpando[this] = o;
 
-    _instances[sharedObjectID] = WeakReference(this as F);
+    _fieldsInstances[sharedObjectID] = WeakReference(this as F);
   }
 
   /// The [SharedObject] ([O]) of this instance. This [SharedObject] will be
@@ -208,7 +223,7 @@ abstract class SharedObjectField<
     var sharedStored = _instanceHandler._sharedObjectExpando[this];
     if (sharedStored == null) {
       throw StateError(
-          "After `_setupInstance` `sharedStored` should be defined at `_sharedStoreExpando`");
+          "After `_setupInstance`, `sharedStored` should be defined at `_sharedStoreExpando`");
     }
 
     return sharedStored;
