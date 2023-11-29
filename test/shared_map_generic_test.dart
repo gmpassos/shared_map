@@ -100,8 +100,72 @@ void _doTest<K, V, T extends SharedMap<K, V>>(
         expect(await m1.get('c'), m1 is NotSharedMap ? isNull : equals(3001));
       }
 
+      {
+        var storeField1 = SharedStoreField.fromSharedStore(m1.sharedStore);
+
+        if (storeField1 is NotSharedStoreField) {
+          expect(storeField1.sharedStoreID, isNot(equals(store1.id)));
+        } else {
+          expect(storeField1.sharedStoreID, equals(store1.id));
+        }
+
+        var store2 = storeField1.sharedStore;
+
+        var sharedMapField =
+            SharedMapField<K, V>.from(sharedMapReference: m1.sharedReference());
+
+        if (storeField1 is NotSharedStoreField) {
+          expect(sharedMapField, isA<NotSharedMapField<K, V>>());
+        } else {
+          expect(sharedMapField, isA<SharedMapField<K, V>>());
+        }
+
+        var m2 = await store2.getSharedMap<String, int>('m1');
+        var m3 = sharedMapField.sharedMap;
+
+        expect(m2.runtimeType, equals(m3.runtimeType));
+
+        if (storeField1 is NotSharedStoreField) {
+          expect(m2, isA<NotSharedMap<String, int>>());
+
+          expect(await m2!.get('a'), isNull);
+          expect(await m2.keys(), equals([]));
+        } else {
+          expect(m2, isA<SharedMap<String, int>>());
+
+          expect(await m2!.get('a'), equals(222));
+          expect(await m2.keys(), equals(['a', 'b', 'c']));
+        }
+      }
+
       // Finish NotSharedMap test:
       if (m1 is NotSharedMap) {
+        {
+          var cached2 = await _asFuture(m1).cached();
+
+          expect(identical(cached2, cached1), isTrue);
+          expect(await cached2.get('a'), equals(111));
+
+          expect(await _asFuture(cached2).get('a'), equals(111));
+          expect(await _asFutureOr(cached2).get('a'), equals(111));
+
+          expect(await cached2.putIfAbsent('a', 5555), equals(111));
+
+          expect(await _asFuture(cached2).putIfAbsent('a', 5555), equals(111));
+          expect(
+              await _asFutureOr(cached2).putIfAbsent('a', 5555), equals(111));
+
+          expect(await cached2.put('a', 331), equals(331));
+          expect(await cached2.get('a'), equals(331));
+
+          expect(await _asFuture(cached2).put('a', 332), equals(332));
+          expect(await cached2.get('a'), equals(332));
+
+          expect(await _asFutureOr(cached2).put('a', 333), equals(333));
+
+          expect(await cached2.putIfAbsent('a', 6666), equals(333));
+        }
+
         return;
       }
 

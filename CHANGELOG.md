@@ -1,3 +1,15 @@
+## 1.1.2
+
+- New `SharedObjectReferenceable`: `SharedObject` + `ReferenceableType`
+- `SharedObjectIsolate` now implements `SharedObjectReferenceable<R>`.
+- New `SharedReferenceIsolate`.
+- New `SharedFieldInstanceHandler` and `SharedObjectField`.
+- `SharedStoreField` and `SharedMapField`:
+  - Now extends `SharedObjectField` to reuse `SharedObjectField` implementation.
+- `ReferenceableType`:
+  - Added `getSharedObject`, `getOrCreateSharedObject` and `disposeSharedObject`.
+- Improve documentation.
+
 ## 1.1.1
 
 - `SharedStoreIsolateAuxiliary`: fix initialization.

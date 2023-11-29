@@ -1,3 +1,5 @@
+import 'package:shared_map/shared_map.dart';
+
 /// A NOT shared implementation of [SharedObject].
 abstract class NotSharedObject extends SharedObject {
   /// A [NotSharedObject] can't have an auxiliary instance.
@@ -19,6 +21,13 @@ abstract class SharedObject {
   /// Returns `true` if this instance is the main/original instance.
   /// Also means that it is NOT an auxiliary instance. See [isAuxiliaryInstance].
   bool get isMainInstance => !isAuxiliaryInstance;
+}
+
+/// A [SharedObject] + [ReferenceableType]
+abstract class SharedObjectReferenceable<R extends SharedReference>
+    implements SharedObject, ReferenceableType {
+  @override
+  R sharedReference();
 }
 
 /// The main ("server") side implementation of a [SharedObject].

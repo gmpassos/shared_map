@@ -3,6 +3,7 @@
 import 'dart:isolate';
 
 import 'package:shared_map/shared_map.dart';
+import 'package:shared_map/src/shared_map_isolate.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -23,6 +24,25 @@ void main() {
 
       var va3 = await Isolate.run<int?>(() async {
         var m2 = SharedMap<String, int>.fromSharedReference(sharedMapReference);
+
+        var sharedReference2 = m2.sharedReference();
+        if (sharedReference2.id != sharedMapReference.id) {
+          throw StateError("Invalid `sharedReference`");
+        }
+
+        if (sharedMapReference is SharedMapReferenceIsolate &&
+            sharedReference2 is SharedMapReferenceIsolate) {
+          if (!identical(
+              sharedMapReference.serverPort, sharedReference2.serverPort)) {
+            throw StateError("Invalid `sharedReference.serverPort`");
+          }
+        }
+
+        if (sharedReference2.sharedStoreReference.id !=
+            sharedMapReference.sharedStoreReference.id) {
+          throw StateError("Invalid `sharedReference.sharedStoreReference`");
+        }
+
         var va3 = await m2.get('a');
         return va3;
       });
@@ -170,6 +190,35 @@ void main() {
         var va = await Isolate.run<int?>(() async {
           var sharedStoreField = SharedStoreField.tryFrom(
             sharedStoreReference: sharedStoreReference,
+          );
+
+          if (sharedStoreField == null) {
+            throw StateError("Null `sharedStoreField`");
+          }
+
+          var store5 = sharedStoreField.sharedStore;
+
+          var m7 = await store5.getSharedMap(sharedMapID);
+
+          var va = await m7!.get('a');
+          if (va != 222) {
+            throw StateError("Key `a`: expected 222 ; got: $va");
+          }
+
+          return va;
+        });
+
+        expect(va, equals(222));
+      }
+
+      {
+        var va = await Isolate.run<int?>(() async {
+          var sharedStoreField0 = SharedStoreField.from(
+            sharedStoreReference: sharedStoreReference,
+          );
+
+          var sharedStoreField = SharedStoreField.tryFrom(
+            sharedStore: sharedStoreField0.sharedStore,
           );
 
           if (sharedStoreField == null) {
@@ -438,26 +487,34 @@ void main() {
 
       {
         var sharedMapField2 = SharedMapField(m1.id, sharedStore: store1);
-        expect(identical(sharedMapField2.sharedMapSync, m1), isTrue);
+        expect(identical(sharedMapField2.sharedMap, m1), isTrue);
       }
 
       {
-        expect(sharedMapField.trySharedMapSync?.id, equals(m1.id));
+        expect(sharedMapField.sharedMap.id, equals(m1.id));
 
-        var m2 = sharedMapField.sharedMapSync;
+        var m2 = sharedMapField.sharedMap;
         expect(m2.id, equals(m1.id));
 
         expect(identical(m2, m1), isTrue);
       }
 
       var va5 = await Isolate.run<int?>(() async {
-        var m3 = await sharedMapField.sharedMap;
+        var m3 = sharedMapField.sharedMap;
+
+        var cached = sharedMapField.sharedMapCached();
 
         var va5 = await m3.get('a');
         if (va5 != 111) throw StateError("Expected: 111 ; got: $va5");
 
+        var vaCached5 = await cached.get('a');
+        if (vaCached5 != 111) throw StateError("Expected: 111 ; got: $va5");
+
         va5 = await m3.put('a', 11111);
         if (va5 != 11111) throw StateError("Expected: 11111 ; got: $va5");
+
+        vaCached5 = await cached.get('a');
+        if (vaCached5 != 111) throw StateError("Expected: 111 ; got: $va5");
 
         return va5;
       });
