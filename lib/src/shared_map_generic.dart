@@ -3,6 +3,7 @@ import 'dart:async';
 import 'not_shared_map.dart';
 import 'shared_map_base.dart';
 import 'shared_map_cached.dart';
+import 'utils.dart';
 
 class SharedStoreGeneric implements SharedStore {
   static final Map<String, WeakReference<SharedStoreGeneric>> _instances = {};
@@ -10,8 +11,28 @@ class SharedStoreGeneric implements SharedStore {
   @override
   final String id;
 
-  SharedStoreGeneric(this.id) {
+  SharedStoreGeneric._(this.id) {
     _instances[id] = WeakReference(this);
+  }
+
+  factory SharedStoreGeneric(String id) {
+    var prev = SharedStoreGeneric._instances[id]?.target;
+    if (prev != null) return prev;
+
+    return SharedStoreGeneric._(id);
+  }
+
+  factory SharedStoreGeneric.from(
+      {SharedStoreReference? reference, String? id}) {
+    if (reference != null) {
+      return SharedStoreGeneric(reference.id);
+    }
+
+    if (id != null) {
+      return SharedStoreGeneric(id);
+    }
+
+    throw MultiNullArguments(['reference', 'id']);
   }
 
   final Map<String, SharedMapGeneric> _sharedMaps = {};
@@ -308,10 +329,7 @@ SharedStore createSharedStore(
     id ??= sharedReference.id;
   }
 
-  var prev = SharedStoreGeneric._instances[id!]?.target;
-  if (prev != null) return prev;
-
-  return SharedStoreGeneric(id);
+  return SharedStoreGeneric(id!);
 }
 
 SharedMap<K, V> createSharedMap<K, V>(

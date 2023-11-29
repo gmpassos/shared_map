@@ -212,6 +212,35 @@ void main() {
       }
 
       {
+        var va = await Isolate.run<int?>(() async {
+          var sharedStoreField0 = SharedStoreField.from(
+            sharedStoreReference: sharedStoreReference,
+          );
+
+          var sharedStoreField = SharedStoreField.tryFrom(
+            sharedStore: sharedStoreField0.sharedStore,
+          );
+
+          if (sharedStoreField == null) {
+            throw StateError("Null `sharedStoreField`");
+          }
+
+          var store5 = sharedStoreField.sharedStore;
+
+          var m7 = await store5.getSharedMap(sharedMapID);
+
+          var va = await m7!.get('a');
+          if (va != 222) {
+            throw StateError("Key `a`: expected 222 ; got: $va");
+          }
+
+          return va;
+        });
+
+        expect(va, equals(222));
+      }
+
+      {
         var cached2 = m1.cached();
 
         expect(identical(cached2, cached1), isTrue);

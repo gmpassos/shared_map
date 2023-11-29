@@ -100,6 +100,16 @@ void _doTest<K, V, T extends SharedMap<K, V>>(
         expect(await m1.get('c'), m1 is NotSharedMap ? isNull : equals(3001));
       }
 
+      {
+        var storeField1 = SharedStoreField.fromSharedStore(m1.sharedStore);
+
+        if (storeField1 is NotSharedStoreField) {
+          expect(storeField1.sharedStoreID, isNot(equals(store1.id)));
+        } else {
+          expect(storeField1.sharedStoreID, equals(store1.id));
+        }
+      }
+
       // Finish NotSharedMap test:
       if (m1 is NotSharedMap) {
         {

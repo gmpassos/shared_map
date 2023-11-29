@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'not_shared_map.dart';
 import 'shared_map_cached.dart';
+import 'shared_map_generic.dart' as generic;
 import 'shared_map_generic.dart'
     if (dart.library.isolate) 'shared_map_isolate.dart';
 import 'shared_object_field.dart';
@@ -290,13 +291,29 @@ class SharedStoreField extends SharedObjectField<SharedStoreReference,
     sharedObjectInstantiator: SharedStore.from,
   );
 
+  static final _instanceHandlerGeneric = SharedFieldInstanceHandler<
+      SharedStoreReference, SharedStore, SharedStoreField>(
+    fieldInstantiator: SharedStoreField._fromIDGeneric,
+    sharedObjectInstantiator: generic.SharedStoreGeneric.from,
+    group: (generic.SharedStoreGeneric, null),
+  );
+
   SharedStoreField._fromID(String id)
       : super.fromID(id, instanceHandler: _instanceHandler);
 
+  SharedStoreField._fromIDGeneric(String id)
+      : super.fromID(id, instanceHandler: _instanceHandlerGeneric);
+
   factory SharedStoreField(String id) => _instanceHandler.fromID(id);
 
-  factory SharedStoreField.fromSharedStore(SharedStore o) =>
-      _instanceHandler.fromSharedObject(o);
+  factory SharedStoreField.fromSharedStore(SharedStore o) {
+    if (o is NotSharedStore) {
+      return NotSharedStoreField(o);
+    } else if (o is generic.SharedStoreGeneric) {
+      return _instanceHandlerGeneric.fromSharedObject(o);
+    }
+    return _instanceHandler.fromSharedObject(o);
+  }
 
   factory SharedStoreField.from(
       {SharedStoreField? sharedStoreField,
@@ -380,7 +397,7 @@ class SharedMapField<K, V> extends SharedObjectField<SharedMapReference,
             id: id,
             sharedStoreReference: sharedStoreReference)
           ..setCallbacks(onPut: onPut, onRemove: onRemove),
-        group: sharedStoreReference.id,
+        group: (SharedStore, sharedStoreReference.id),
       );
 
   final SharedStoreField _sharedStoreField;

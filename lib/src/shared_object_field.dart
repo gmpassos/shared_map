@@ -20,7 +20,7 @@ class SharedFieldInstanceHandler<R extends SharedReference,
   factory SharedFieldInstanceHandler(
       {required SharedFieldInstantiator<R, O, F> fieldInstantiator,
       required SharedObjectInstantiator<R, O> sharedObjectInstantiator,
-      Object? group}) {
+      (Type, Object?)? group}) {
     var fieldHandler = _instances[(F, group)] ??=
         SharedFieldInstanceHandler<R, O, F>._(
             fieldInstantiator, sharedObjectInstantiator,
@@ -29,7 +29,7 @@ class SharedFieldInstanceHandler<R extends SharedReference,
     return fieldHandler as SharedFieldInstanceHandler<R, O, F>;
   }
 
-  final Object? group;
+  final (Type, Object?)? group;
 
   final Map<String, WeakReference<F>> _fieldsInstances = {};
 
@@ -119,7 +119,7 @@ abstract class SharedObjectField<
     F extends SharedObjectField<R, O, F>> extends SharedObject {
   final SharedFieldInstantiator<R, O, F> _fieldInstantiator;
   final SharedObjectInstantiator<R, O> _sharedObjectInstantiator;
-  final Object? _instanceHandlerGroup;
+  final (Type, Object?)? _instanceHandlerGroup;
 
   /// The global ID of the [sharedObject].
   final String sharedObjectID;
@@ -129,7 +129,7 @@ abstract class SharedObjectField<
     SharedFieldInstanceHandler<R, O, F>? instanceHandler,
     SharedFieldInstantiator<R, O, F>? fieldInstantiator,
     SharedObjectInstantiator<R, O>? sharedObjectInstantiator,
-    Object? instanceHandlerGroup,
+    (Type, Object?)? instanceHandlerGroup,
   })  : _instanceHandlerGroup = instanceHandlerGroup ?? instanceHandler?.group,
         _fieldInstantiator = fieldInstantiator ??
             instanceHandler?.fieldInstantiator ??
