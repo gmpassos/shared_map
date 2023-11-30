@@ -5,7 +5,7 @@
 - `SharedObjectField`:
   - Added `sharedObjectAsync` and `isResolvingReference`.
 - `SharedMap`:
-  - Shared to asynchronous "constructors" (static methods): `fromID`, `fromUUID`, `from`.
+  - Changed to asynchronous "constructors" (static methods): `fromID`, `fromUUID`, `from`.
 
 ## 1.1.2
 
