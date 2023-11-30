@@ -1,3 +1,12 @@
+## 1.1.3
+
+- `SharedStore`:
+  - Added `getSharedObject`, `getSharedObjectReference` and `registerSharedObject`.
+- `SharedObjectField`:
+  - Added `sharedObjectAsync` and `isResolvingReference`.
+- `SharedMap`:
+  - Shared to asynchronous "constructors" (static methods): `fromID`, `fromUUID`, `from`.
+
 ## 1.1.2
 
 - New `SharedObjectReferenceable`: `SharedObject` + `ReferenceableType`

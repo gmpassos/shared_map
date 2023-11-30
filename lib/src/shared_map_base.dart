@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'not_shared_map.dart';
 import 'shared_map_cached.dart';
+import 'shared_map_extension.dart';
 import 'shared_map_generic.dart'
     if (dart.library.isolate) 'shared_map_isolate.dart';
 import 'shared_map_generic.dart' as generic;
@@ -52,6 +53,22 @@ abstract class SharedStore extends ReferenceableType {
     SharedMapEntryCallback<K, V>? onRemove,
   });
 
+  /// Returns a shared object of type [t] or [O] with [id].
+  /// The object should be previously registered with [registerSharedObject].
+  /// See [getSharedObjectReference].
+  FutureOr<O?> getSharedObject<O extends ReferenceableType>(String id,
+      {Type? t});
+
+  /// Returns a [SharedReference] [R] for type [t] or [O] with [id].
+  /// The object should be previously registered with [registerSharedObject].
+  /// See [getSharedObject].
+  FutureOr<R?> getSharedObjectReference<O extends ReferenceableType,
+      R extends SharedReference>(String id, {Type? t});
+
+  /// Registers a shared object [o] (of type `[O]`). This object
+  /// can be retrieved by [getSharedObject] and [getSharedObjectReference].
+  void registerSharedObject<O extends ReferenceableType>(O o);
+
   @override
   SharedStoreReference sharedReference();
 }
@@ -96,13 +113,20 @@ extension SharedMapEntryCallbackExtension<K, V>
 /// Base class for [SharedMap] implementations.
 abstract class SharedMap<K, V> extends ReferenceableType {
   /// Creates a [SharedMap] with [id].
-  factory SharedMap(SharedStore sharedStore, String id) {
-    return createSharedMap(sharedStore: sharedStore, id: id);
+  static FutureOr<SharedMap<K, V>> fromID<K, V>(
+      SharedStore sharedStore, String id,
+      {SharedMapEntryCallback<K, V>? onPut,
+      SharedMapEntryCallback<K, V>? onRemove}) {
+    return createSharedMapAsync<K, V>(sharedStore: sharedStore, id: id)
+        .setCallbacks(
+      onPut: onPut,
+      onRemove: onRemove,
+    );
   }
 
   /// Creates a [SharedMap] using a [ReferenceableType.newUUID] as [id].
-  factory SharedMap.fromUUID(SharedStore sharedStore) =>
-      SharedMap(sharedStore, ReferenceableType.newUUID());
+  static FutureOr<SharedMap<K, V>> fromUUID<K, V>(SharedStore sharedStore) =>
+      SharedMap.fromID(sharedStore, ReferenceableType.newUUID());
 
   /// Creates a [SharedMap] that can NOT be shared.
   /// Useful for tests or to have a version that disables the share capabilities.
@@ -114,19 +138,24 @@ abstract class SharedMap<K, V> extends ReferenceableType {
   }
 
   /// Creates a [SharedMap] from [reference] or [id].
-  factory SharedMap.from(
+  static FutureOr<SharedMap<K, V>> from<K, V>(
       {SharedMapReference? reference,
       String? id,
       SharedStoreReference? sharedStoreReference,
-      String? sharedStoreID}) {
+      SharedStore? sharedStore,
+      String? sharedStoreID,
+      SharedMapEntryCallback<K, V>? onPut,
+      SharedMapEntryCallback<K, V>? onRemove}) {
     if (reference != null) {
-      return SharedMap.fromSharedReference(reference);
+      return SharedMap.fromSharedReference(reference)
+        ..setCallbacks(onPut: onPut, onRemove: onRemove);
     }
 
     if (id != null) {
-      var store =
+      sharedStore ??=
           SharedStore.from(reference: sharedStoreReference, id: sharedStoreID);
-      return SharedMap(store, id);
+      return SharedMap.fromID(sharedStore, id,
+          onPut: onPut, onRemove: onRemove);
     }
 
     throw MultiNullArguments(['reference', 'id']);
@@ -293,13 +322,14 @@ class SharedStoreField extends SharedObjectField<SharedStoreReference,
 
   static final _instanceHandlerGeneric = SharedFieldInstanceHandler<
       SharedStoreReference, SharedStore, SharedStoreField>(
-    fieldInstantiator: SharedStoreField._fromIDGeneric,
+    fieldInstantiator: (id, {sharedObjectReference}) =>
+        SharedStoreField._fromIDGeneric(id),
     sharedObjectInstantiator: generic.SharedStoreGeneric.from,
     group: (generic.SharedStoreGeneric, null),
   );
 
-  SharedStoreField._fromID(String id)
-      : super.fromID(id, instanceHandler: _instanceHandler);
+  SharedStoreField._fromID(super.sharedObjectID, {super.sharedObjectReference})
+      : super.fromID(instanceHandler: _instanceHandler);
 
   SharedStoreField._fromIDGeneric(String id)
       : super.fromID(id, instanceHandler: _instanceHandlerGeneric);
@@ -390,28 +420,21 @@ class SharedMapField<K, V> extends SharedObjectField<SharedMapReference,
     SharedMapEntryCallback<K, V>? onRemove,
   ) =>
       SharedFieldInstanceHandler(
-        fieldInstantiator: (id) =>
-            SharedMapField._fromID(id, sharedStoreReference, onPut, onRemove),
+        fieldInstantiator: (id, {sharedObjectReference}) =>
+            SharedMapField._fromID(
+                id,
+                sharedObjectReference: sharedObjectReference,
+                sharedStoreReference,
+                onPut,
+                onRemove),
         sharedObjectInstantiator: ({reference, id}) => SharedMap.from(
             reference: reference,
             id: id,
-            sharedStoreReference: sharedStoreReference)
-          ..setCallbacks(onPut: onPut, onRemove: onRemove),
+            sharedStoreReference: sharedStoreReference,
+            onPut: onPut,
+            onRemove: onRemove),
         group: (SharedStore, sharedStoreReference.id),
       );
-
-  final SharedStoreField _sharedStoreField;
-
-  SharedMapField._fromID(
-    String id,
-    SharedStoreReference sharedStoreReference,
-    SharedMapEntryCallback<K, V>? onPut,
-    SharedMapEntryCallback<K, V>? onRemove,
-  )   : _sharedStoreField =
-            SharedStoreField.from(sharedStoreReference: sharedStoreReference),
-        super.fromID(id,
-            instanceHandler:
-                _instanceHandler(sharedStoreReference, onPut, onRemove));
 
   factory SharedMapField(
     String id, {
@@ -510,6 +533,20 @@ class SharedMapField<K, V> extends SharedObjectField<SharedMapReference,
     return null;
   }
 
+  final SharedStoreField _sharedStoreField;
+
+  SharedMapField._fromID(
+      super.sharedObjectID,
+      SharedStoreReference sharedStoreReference,
+      SharedMapEntryCallback<K, V>? onPut,
+      SharedMapEntryCallback<K, V>? onRemove,
+      {super.sharedObjectReference})
+      : _sharedStoreField =
+            SharedStoreField.from(sharedStoreReference: sharedStoreReference),
+        super.fromID(
+            instanceHandler:
+                _instanceHandler(sharedStoreReference, onPut, onRemove));
+
   SharedStore get sharedStore => _sharedStoreField.sharedStore;
 
   @override
@@ -519,10 +556,10 @@ class SharedMapField<K, V> extends SharedObjectField<SharedMapReference,
 
   SharedMap<K, V> get sharedMap => sharedObject;
 
+  FutureOr<SharedMap<K, V>> get sharedMapAsync => sharedObjectAsync;
+
   /// Returns a cached version of [sharedMap].
   /// See [SharedMap.cached].
-  FutureOr<SharedMap<K, V>> sharedMapCached({Duration? timeout}) {
-    var sharedMap = this.sharedMap;
-    return sharedMap.cached(timeout: timeout);
-  }
+  FutureOr<SharedMap<K, V>> sharedMapCached({Duration? timeout}) =>
+      sharedMapAsync.cached(timeout: timeout);
 }

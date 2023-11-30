@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'not_shared_map.dart';
 import 'shared_map_base.dart';
 import 'shared_map_cached.dart';
+import 'shared_reference.dart';
 import 'utils.dart';
 
 class SharedStoreGeneric implements SharedStore {
@@ -36,14 +39,80 @@ class SharedStoreGeneric implements SharedStore {
   final Map<String, SharedMapGeneric> _sharedMaps = {};
 
   @override
-  SharedMap<K, V>? getSharedMap<K, V>(
+  SharedMap<K, V> getSharedMap<K, V>(
     String id, {
     SharedMapEntryCallback<K, V>? onPut,
     SharedMapEntryCallback<K, V>? onRemove,
   }) {
+    var prev = _sharedMaps[id];
+    if (prev != null) {
+      return prev as SharedMap<K, V>;
+    }
+
     var o = createSharedMap<K, V>(sharedStore: this, id: id);
     o.setCallbacksDynamic<K, V>(onPut: onPut, onRemove: onRemove);
+
     return o;
+  }
+
+  final Map<Type, Map<String, WeakReference<ReferenceableType>>>
+      _typesSharedObjects = {};
+
+  @override
+  O? getSharedObject<O extends ReferenceableType>(String id, {Type? t}) {
+    t ??= O;
+
+    var sharedObjects = _typesSharedObjects[t];
+    if (sharedObjects == null || sharedObjects.isEmpty) return null;
+
+    var ref = sharedObjects[id];
+
+    if (ref != null) {
+      var prev = ref.target;
+      if (prev == null) {
+        sharedObjects.remove(ref);
+      } else {
+        return prev as O;
+      }
+    }
+
+    return null;
+  }
+
+  @override
+  FutureOr<R?> getSharedObjectReference<O extends ReferenceableType,
+      R extends SharedReference>(String id, {Type? t}) {
+    t ??= O;
+    var o = getSharedObject(id, t: t);
+    return o?.sharedReference() as R?;
+  }
+
+  @override
+  void registerSharedObject<O extends ReferenceableType>(O o) {
+    if (o is SharedMap) {
+      throw StateError("Can't register a `SharedMap`: $o");
+    }
+
+    var sharedObjects = _typesSharedObjects[O] ??= <String, WeakReference<O>>{};
+
+    var id = o.id;
+
+    var ref = sharedObjects[id];
+    if (ref != null) {
+      var prev = ref.target;
+      if (prev == null) {
+        sharedObjects.remove(ref);
+      } else {
+        if (identical(prev, o)) {
+          return;
+        }
+
+        throw StateError(
+            "Shared object (`$O`) with id `$id` already registered: $prev != $o");
+      }
+    }
+
+    sharedObjects[id] = WeakReference(o);
   }
 
   @override
@@ -341,7 +410,16 @@ SharedMap<K, V> createSharedMap<K, V>(
 
     sharedStore ??= SharedStoreGeneric
         ._instances[sharedReference.sharedStoreReference.id]?.target;
+
     id ??= sharedReference.id;
+  }
+
+  if (id == null) {
+    throw ArgumentError.notNull('id');
+  }
+
+  if (sharedStore == null) {
+    throw ArgumentError.notNull('sharedStore');
   }
 
   if (sharedStore is! SharedStoreGeneric) {
@@ -351,7 +429,14 @@ SharedMap<K, V> createSharedMap<K, V>(
   var prev = sharedStore._sharedMaps[id];
   if (prev != null) return prev as SharedMap<K, V>;
 
-  var sharedMap = SharedMapGeneric<K, V>(sharedStore, id!);
+  var sharedMap = SharedMapGeneric<K, V>(sharedStore, id);
   sharedStore._sharedMaps[id] = sharedMap;
   return sharedMap;
 }
+
+FutureOr<SharedMap<K, V>> createSharedMapAsync<K, V>(
+        {SharedStore? sharedStore,
+        String? id,
+        SharedMapReference? sharedReference}) =>
+    createSharedMap(
+        sharedStore: sharedStore, id: id, sharedReference: sharedReference);
