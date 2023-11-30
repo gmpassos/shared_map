@@ -1,3 +1,9 @@
+## 1.1.4
+
+- Dart CI: Added `test_chrome`.
+- `shared_map_generic.dart`:
+  - Fixed `createSharedMap` with a `NotSharedStore`.
+
 ## 1.1.3
 
 - `SharedStore`:

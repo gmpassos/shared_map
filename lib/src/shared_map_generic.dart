@@ -422,6 +422,10 @@ SharedMap<K, V> createSharedMap<K, V>(
     throw ArgumentError.notNull('sharedStore');
   }
 
+  if (sharedStore is NotSharedStore) {
+    return sharedStore.getSharedMap<K, V>(id)!;
+  }
+
   if (sharedStore is! SharedStoreGeneric) {
     throw StateError("`sharedStore` not a `SharedStoreGeneric`: $sharedStore");
   }
