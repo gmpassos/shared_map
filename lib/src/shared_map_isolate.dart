@@ -6,6 +6,7 @@ import 'shared_map_base.dart';
 import 'shared_map_cached.dart';
 import 'shared_map_generic.dart' as generic;
 import 'shared_object_isolate.dart';
+import 'shared_reference.dart';
 
 mixin _SharedStoreIsolate implements SharedStore {
   static final Map<String, WeakReference<_SharedStoreIsolate>> _instances = {};
@@ -19,6 +20,64 @@ mixin _SharedStoreIsolate implements SharedStore {
   }
 
   final Map<String, _SharedMapIsolate> _sharedMaps = {};
+
+  final Map<Type, Map<String, WeakReference<ReferenceableType>>>
+      _typesSharedObjects = {};
+
+  @override
+  O? getSharedObject<O extends ReferenceableType>(String id, {Type? t}) {
+    t ??= O;
+    var sharedObjects = _typesSharedObjects[t];
+    if (sharedObjects == null || sharedObjects.isEmpty) return null;
+
+    var ref = sharedObjects[id];
+
+    if (ref != null) {
+      var prev = ref.target;
+      if (prev == null) {
+        sharedObjects.remove(ref);
+      } else {
+        return prev as O;
+      }
+    }
+
+    return null;
+  }
+
+  @override
+  void registerSharedObject<O extends ReferenceableType>(O o) {
+    if (o is SharedMap) {
+      throw StateError("Can't register a `SharedMap`: $o");
+    }
+
+    var sharedObjects = (_typesSharedObjects[O] ??=
+        <String, WeakReference<O>>{}) as Map<String, WeakReference<O>>;
+
+    var id = o.id;
+
+    var ref = sharedObjects[id];
+    if (ref != null) {
+      var prev = ref.target;
+      if (prev == null) {
+        sharedObjects.remove(ref);
+      } else {
+        if (identical(prev, o)) {
+          return;
+        }
+
+        throw StateError(
+            "Shared object (`$O`) with id `$id` already registered: $prev != $o");
+      }
+    }
+
+    sharedObjects[id] = WeakReference<O>(o);
+  }
+}
+
+enum _SharedStoreIsolateOperation {
+  sharedPorts,
+  getSharedMap,
+  getSharedObjectReference,
 }
 
 class _SharedStoreIsolateMain
@@ -32,13 +91,60 @@ class _SharedStoreIsolateMain
   void onReceiveIsolateRequestMessage(SharedObjectIsolateRequestMessage m) {
     final args = m.args;
 
-    var id = args[0] as String;
-    var callCasted = args[1] as _CallCasted;
+    var op = args[0] as _SharedStoreIsolateOperation;
+
+    switch (op) {
+      case _SharedStoreIsolateOperation.sharedPorts:
+        {
+          _processSharedPorts(m);
+        }
+      case _SharedStoreIsolateOperation.getSharedMap:
+        {
+          _processGetSharedMap(m);
+        }
+      case _SharedStoreIsolateOperation.getSharedObjectReference:
+        {
+          _processGetSharedObjectReference(m);
+        }
+    }
+  }
+
+  void _processSharedPorts(SharedObjectIsolateRequestMessage m) {
+    var sharedMapsPorts = _sharedMaps
+        .map((id, o) => MapEntry(id, o.sharedReference().serverPort));
+
+    var sharedObjectPorts = _typesSharedObjects.map((t, objs) {
+      var typePorts = objs.map((id, ref) {
+        var objRef = ref.target?.sharedReference();
+        return MapEntry(id, objRef);
+      });
+      return MapEntry(t, typePorts);
+    });
+
+    m.sendResponse((sharedMapsPorts, sharedObjectPorts));
+  }
+
+  void _processGetSharedMap(SharedObjectIsolateRequestMessage m) {
+    final args = m.args;
+
+    var id = args[1] as String;
+    var callCasted = args[2] as _CallCasted;
 
     var sharedMap =
         callCasted(<K1, V1>() => getSharedMap<K1, V1>(id)) as SharedMap?;
 
     m.sendResponse(sharedMap?.sharedReference());
+  }
+
+  void _processGetSharedObjectReference(SharedObjectIsolateRequestMessage m) {
+    final args = m.args;
+
+    var id = args[1] as String;
+    var t = args[2] as Type;
+
+    var ref = getSharedObjectReference(id, t: t);
+
+    m.sendResponse(ref);
   }
 
   @override
@@ -57,15 +163,36 @@ class _SharedStoreIsolateMain
     }
 
     var o = createSharedMap<K, V>(sharedStore: this, id: id);
-
     o.setCallbacksDynamic<K, V>(onPut: onPut, onRemove: onRemove);
-
     return o;
   }
 
+  void _registerSharedMap(_SharedMapIsolateMain sharedMap) {
+    final id = sharedMap.id;
+    _sharedMaps[id] = sharedMap;
+
+    var sharedMapPort = sharedMap.sharedReference().serverPort;
+
+    var ref = sharedReference();
+
+    var prevPort = ref._sharedMapsPorts[id];
+    assert(prevPort == null || identical(prevPort, sharedMapPort));
+
+    ref._sharedMapsPorts[id] = sharedMapPort;
+  }
+
+  @override
+  R? getSharedObjectReference<O extends ReferenceableType,
+      R extends SharedReference>(String id, {Type? t}) {
+    var o = getSharedObject<O>(id, t: t);
+    return o?.sharedReference() as R?;
+  }
+
+  SharedStoreReferenceIsolate? _sharedReference;
+
   @override
   SharedStoreReferenceIsolate sharedReference() =>
-      SharedStoreReferenceIsolate(id, isolateSendPort);
+      _sharedReference ??= SharedStoreReferenceIsolate(id, isolateSendPort);
 
   @override
   String toString() =>
@@ -80,8 +207,43 @@ class _SharedStoreIsolateAuxiliary
   @override
   final SendPort serverPort;
 
-  _SharedStoreIsolateAuxiliary(super.id, this.serverPort) {
+  _SharedStoreIsolateAuxiliary(super.id,
+      {SendPort? serverPort, SharedStoreReferenceIsolate? sharedReference})
+      : serverPort = serverPort ?? sharedReference!.serverPort,
+        _sharedReference = sharedReference {
     _setupInstance();
+    _updateSharedPorts();
+  }
+
+  void _updateSharedPorts() {
+    sendRequest<
+        (
+          Map<String, SendPort>,
+          Map<Type, Map<String, SharedReference?>>
+        )>([_SharedStoreIsolateOperation.sharedPorts]).then((ports) {
+      if (ports == null) return;
+
+      var sharedMapPorts = ports.$1;
+      var sharedObjectsPorts = ports.$2;
+
+      var ref = sharedReference();
+
+      for (var e in sharedMapPorts.entries) {
+        ref._sharedMapsPorts[e.key] = e.value;
+      }
+
+      for (var typeEntry in sharedObjectsPorts.entries) {
+        var t = typeEntry.key;
+        var typeRefs = ref._sharedObjectsReferences[t] ??= {};
+
+        for (var e in typeEntry.value.entries) {
+          var r = e.value;
+          if (r != null) {
+            typeRefs[e.key] = r;
+          }
+        }
+      }
+    });
   }
 
   @override
@@ -97,17 +259,36 @@ class _SharedStoreIsolateAuxiliary
       return o;
     }
 
+    var sharedStoreReference = sharedReference();
+
+    var sharedMapsPort = sharedStoreReference._sharedMapsPorts[id];
+
+    if (sharedMapsPort != null) {
+      var ref =
+          SharedMapReferenceIsolate(id, sharedStoreReference, sharedMapsPort);
+      return _resolveSharedMapFromReference(ref, onPut, onRemove);
+    }
+
     _CallCasted<K, V> callCasted = _buildCallCasted<K, V>();
 
-    return sendRequest<SharedMapReference>([id, callCasted]).then((ref) {
-      if (ref == null) {
-        throw StateError(
-            "Can't get `SharedMapReference` from \"server\" instance: $id");
-      }
-      var o = createSharedMap<K, V>(sharedReference: ref);
-      o.setCallbacksDynamic<K, V>(onPut: onPut, onRemove: onRemove);
-      return o;
-    });
+    return sendRequest<SharedMapReference>(
+            [_SharedStoreIsolateOperation.getSharedMap, id, callCasted])
+        .then((ref) => _resolveSharedMapFromReference(ref, onPut, onRemove));
+  }
+
+  FutureOr<SharedMap<K, V>> _resolveSharedMapFromReference<K, V>(
+    SharedMapReference? ref,
+    SharedMapEntryCallback<K, V>? onPut,
+    SharedMapEntryCallback<K, V>? onRemove,
+  ) {
+    if (ref == null) {
+      throw StateError(
+          "Can't get `SharedMapReference` from \"server\" instance: $id");
+    }
+
+    var o = createSharedMap<K, V>(sharedReference: ref);
+    o.setCallbacksDynamic<K, V>(onPut: onPut, onRemove: onRemove);
+    return o;
   }
 
   /// Generates the lambda [Function] that will be passed to the
@@ -115,8 +296,41 @@ class _SharedStoreIsolateAuxiliary
   _CallCasted<K, V> _buildCallCasted<K, V>() => (f) => f<K, V>();
 
   @override
+  FutureOr<R?> getSharedObjectReference<O extends ReferenceableType,
+      R extends SharedReference>(String id, {Type? t}) {
+    t ??= O;
+
+    var o = getSharedObject<O>(id, t: t);
+    if (o != null) {
+      return o.sharedReference() as R?;
+    }
+
+    var ref = sharedReference();
+
+    var typeRefs = ref._sharedObjectsReferences[t];
+
+    var objRef = typeRefs?[id];
+
+    if (objRef is R) {
+      return objRef;
+    }
+
+    return sendRequest<R>(
+            [_SharedStoreIsolateOperation.getSharedObjectReference, id, t])
+        .then((ref) {
+      if (ref != null) {
+        var typeRefs = _sharedReference?._sharedObjectsReferences[t!] ??= {};
+        typeRefs?[id] ??= ref;
+      }
+      return ref;
+    });
+  }
+
+  SharedStoreReferenceIsolate? _sharedReference;
+
+  @override
   SharedStoreReferenceIsolate sharedReference() =>
-      SharedStoreReferenceIsolate(id, serverPort);
+      _sharedReference ??= SharedStoreReferenceIsolate(id, serverPort);
 
   @override
   String toString() =>
@@ -163,11 +377,13 @@ class _SharedMapIsolateMain<K, V>
     with _SharedMapIsolate<K, V>
     implements SharedMapSync<K, V> {
   @override
-  final SharedStore sharedStore;
+  final _SharedStoreIsolateMain sharedStore;
 
   final Map<K, V> _entries;
 
-  _SharedMapIsolateMain(this.sharedStore, super.id) : _entries = {};
+  _SharedMapIsolateMain(this.sharedStore, super.id) : _entries = {} {
+    sharedStore._registerSharedMap(this);
+  }
 
   @override
   void onReceiveIsolateRequestMessage(SharedObjectIsolateRequestMessage m) {
@@ -325,9 +541,12 @@ class _SharedMapIsolateMain<K, V>
   @override
   SharedMapCached<K, V> cached({Duration? timeout}) => _cached;
 
+  SharedMapReferenceIsolate? _sharedReference;
+
   @override
-  SharedMapReferenceIsolate sharedReference() => SharedMapReferenceIsolate(
-      id, sharedStore.sharedReference(), isolateSendPort);
+  SharedMapReferenceIsolate sharedReference() =>
+      _sharedReference ??= SharedMapReferenceIsolate(
+          id, sharedStore.sharedReference(), isolateSendPort);
 
   @override
   String toString() =>
@@ -391,8 +610,10 @@ class _SharedMapIsolateAuxiliary<K, V>
     return _cached[timeout] ??= SharedMapCached<K, V>(this, timeout: timeout);
   }
 
+  SharedMapReferenceIsolate? _sharedReference;
+
   @override
-  SharedMapReferenceIsolate sharedReference() =>
+  SharedMapReferenceIsolate sharedReference() => _sharedReference ??=
       SharedMapReferenceIsolate(id, sharedStore.sharedReference(), serverPort);
 
   @override
@@ -402,6 +623,10 @@ class _SharedMapIsolateAuxiliary<K, V>
 
 class SharedStoreReferenceIsolate extends SharedStoreReference
     implements SharedReferenceIsolate {
+  final Map<String, SendPort> _sharedMapsPorts = {};
+
+  final Map<Type, Map<String, SharedReference>> _sharedObjectsReferences = {};
+
   @override
   final SendPort serverPort;
 
@@ -451,7 +676,7 @@ SharedStore createSharedStore(
         }
       }
 
-      return _SharedStoreIsolateAuxiliary(id, sharedReference.serverPort);
+      return _SharedStoreIsolateAuxiliary(id, sharedReference: sharedReference);
     } else {
       if (prev != null) return prev;
 
@@ -474,6 +699,20 @@ SharedMap<K, V> createSharedMap<K, V>(
     {SharedStore? sharedStore,
     String? id,
     SharedMapReference? sharedReference}) {
+  var sharedMap = createSharedMapAsync<K, V>(
+      sharedStore: sharedStore, id: id, sharedReference: sharedReference);
+
+  if (sharedMap is Future<SharedMap<K, V>>) {
+    throw StateError("Async resolution of `SharedMap<$K,$V>`: $id");
+  }
+
+  return sharedMap;
+}
+
+FutureOr<SharedMap<K, V>> createSharedMapAsync<K, V>(
+    {SharedStore? sharedStore,
+    String? id,
+    SharedMapReference? sharedReference}) {
   if (sharedReference != null) {
     if (sharedReference is NotSharedMapReference) {
       return sharedReference.notSharedMap as SharedMap<K, V>;
@@ -486,20 +725,38 @@ SharedMap<K, V> createSharedMap<K, V>(
       var sharedStoreID = sharedStoreReference.id;
 
       var sharedStore = _SharedStoreIsolate._instances[sharedStoreID]?.target ??
-          _SharedStoreIsolateAuxiliary(
-              sharedStoreID, sharedStoreReference.serverPort);
+          _SharedStoreIsolateAuxiliary(sharedStoreID,
+              sharedReference: sharedStoreReference);
 
       var sharedMap = sharedStore._sharedMaps[id] ??=
           _SharedMapIsolateAuxiliary<K, V>(
               sharedStore, id, sharedReference.serverPort);
+
       return sharedMap as SharedMap<K, V>;
     } else if (sharedReference is generic.SharedMapReferenceGeneric) {
       return generic.createSharedMap(
           sharedStore: sharedStore, id: id, sharedReference: sharedReference);
     }
   } else if (sharedStore is _SharedStoreIsolate) {
-    var sharedMap = sharedStore._sharedMaps[id!] ??=
-        _SharedMapIsolateMain<K, V>(sharedStore, id);
+    SharedMap? sharedMap = sharedStore._sharedMaps[id!];
+
+    if (sharedMap == null) {
+      if (sharedStore is _SharedStoreIsolateMain) {
+        sharedMap = _SharedMapIsolateMain<K, V>(sharedStore, id);
+      } else if (sharedStore is _SharedStoreIsolateAuxiliary) {
+        var sharedMapAsync = sharedStore.getSharedMap<K, V>(id);
+
+        if (sharedMapAsync is SharedMap<K, V>?) {
+          sharedMap = sharedMapAsync;
+        } else {
+          return sharedMapAsync.then((sharedMap) =>
+              sharedMap ??
+              (throw StateError(
+                  "Can't get `SharedMap<$K,$V>` with id `$id` from: $sharedStore")));
+        }
+      }
+    }
+
     return sharedMap as SharedMap<K, V>;
   }
 

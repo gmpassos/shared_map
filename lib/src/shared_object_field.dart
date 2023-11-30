@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'shared_object.dart';
 import 'shared_reference.dart';
 import 'utils.dart';
@@ -5,12 +7,12 @@ import 'utils.dart';
 /// [SharedObjectField] instantiator
 typedef SharedFieldInstantiator<R extends SharedReference,
         O extends ReferenceableType, F extends SharedObjectField<R, O, F>>
-    = F Function(String id);
+    = F Function(String id, {R? sharedObjectReference});
 
 /// [SharedObjectReferenceable] instantiator
 typedef SharedObjectInstantiator<R extends SharedReference,
         O extends ReferenceableType>
-    = O Function({R? reference, String? id});
+    = FutureOr<O> Function({R? reference, String? id});
 
 /// Instance handler for a [SharedObjectField].
 class SharedFieldInstanceHandler<R extends SharedReference,
@@ -56,20 +58,20 @@ class SharedFieldInstanceHandler<R extends SharedReference,
   }
 
   /// Creates a [SharedObjectField] with [id].
-  F fromID(String id) {
+  F fromID(String id, {R? reference}) {
     var ref = _fieldsInstances[id];
     if (ref != null) {
       var o = ref.target;
       if (o != null) return o;
     }
 
-    var o = fieldInstantiator(id);
+    var o = fieldInstantiator(id, sharedObjectReference: reference);
     assert(identical(o, _fieldsInstances[id]?.target));
     return o;
   }
 
   F fromSharedObject(O o) {
-    var field = fromID(o.id);
+    var field = fromID(o.id, reference: o.sharedReference() as R);
     var o2 = field.sharedObject;
 
     if (!identical(o, o2)) {
@@ -94,8 +96,11 @@ class SharedFieldInstanceHandler<R extends SharedReference,
       return field;
     }
 
-    if (reference != null) {
-      sharedObject ??= sharedObjectInstantiator(reference: reference);
+    if (reference != null && sharedObject == null) {
+      var oAsync = sharedObjectInstantiator(reference: reference);
+      if (oAsync is O) {
+        sharedObject = oAsync;
+      }
     }
 
     if (sharedObject != null) {
@@ -126,6 +131,7 @@ abstract class SharedObjectField<
 
   SharedObjectField.fromID(
     this.sharedObjectID, {
+    R? sharedObjectReference,
     SharedFieldInstanceHandler<R, O, F>? instanceHandler,
     SharedFieldInstantiator<R, O, F>? fieldInstantiator,
     SharedObjectInstantiator<R, O>? sharedObjectInstantiator,
@@ -137,7 +143,7 @@ abstract class SharedObjectField<
         _sharedObjectInstantiator = sharedObjectInstantiator ??
             instanceHandler?.sharedObjectInstantiator ??
             (throw ArgumentError.notNull('sharedObjectInstantiator')) {
-    _setupInstanceFromConstructor();
+    _setupInstanceFromConstructor(sharedObjectReference);
   }
 
   static final Expando<SharedFieldInstanceHandler> _instanceHandlerExpando =
@@ -158,34 +164,64 @@ abstract class SharedObjectField<
   /// The [SharedReference] ([R]) of the [SharedObject].
   R get sharedReference => _sharedReference!;
 
-  void _setupInstanceFromConstructor() {
-    final instanceHandler = _instanceHandler;
+  static final Expando<Future<Object>> _resolvingReferenceAsyncExpando =
+      Expando();
 
-    assert(instanceHandler._sharedObjectExpando[this] == null);
+  bool _resolvingReference = false;
+
+  /// Returns `true` if it's asynchronously resolving the internal reference
+  /// to the [SharedObject]. See [sharedObjectAsync].
+  bool get isResolvingReference => _resolvingReference;
+
+  Future<O>? get _resolvingReferenceAsync =>
+      _resolvingReferenceAsyncExpando[this]?.then((o) => o as O);
+
+  void _setupInstanceFromConstructor(R? sharedObjectReference) {
+    final instanceHandler = _instanceHandler;
+    final sharedObjectExpando = instanceHandler._sharedObjectExpando;
+
+    assert(sharedObjectExpando[this] == null);
 
     final id = sharedObjectID;
 
     assert(instanceHandler.getInstanceByID(id) == null);
 
-    var o = instanceHandler._sharedObjectExpando[this] =
-        instanceHandler.sharedObjectInstantiator(id: id);
-    _sharedReference = o.sharedReference() as R;
-
     _fieldsInstances[id] = WeakReference(this as F);
+
+    var o = sharedObjectExpando[this];
+
+    if (o == null) {
+      var oAsync = instanceHandler.sharedObjectInstantiator(
+          id: id, reference: sharedObjectReference);
+
+      if (oAsync is Future<O>) {
+        _resolvingReference = true;
+        _resolvingReferenceAsyncExpando[this] = oAsync.then((o) {
+          sharedObjectExpando[this] = o;
+          _sharedReference = o.sharedReference() as R;
+          _resolvingReference = false;
+          _resolvingReferenceAsyncExpando[this] = null;
+          return o;
+        });
+        return;
+      } else {
+        o = oAsync;
+      }
+    }
+
+    sharedObjectExpando[this] = o;
+    _sharedReference = o.sharedReference() as R;
   }
 
   void _setupInstance() {
     var prev = _instanceHandler.getInstanceByID(sharedObjectID);
-    if (prev != null) {
-      if (identical(prev, this)) {
-        return;
-      } else {
-        throw StateError(
-            "Previous `SharedStore` instance (id: $sharedObjectID) NOT identical to this instance: $prev != $this");
-      }
-    }
 
-    return _setupInstanceIsolateCopy();
+    if (prev == null) {
+      _setupInstanceIsolateCopy();
+    } else {
+      assert(identical(prev, this),
+          "Previous `SharedStore` instance (id: $sharedObjectID) NOT identical to this instance: $prev != $this");
+    }
   }
 
   bool _isolateCopy = false;
@@ -207,7 +243,7 @@ abstract class SharedObjectField<
         (throw StateError(
             "An `Isolate` copy should have `_reference` defined!"));
 
-    var o = instanceHandler.sharedObjectInstantiator(reference: reference);
+    var o = instanceHandler.sharedObjectInstantiator(reference: reference) as O;
     instanceHandler._sharedObjectExpando[this] = o;
 
     _fieldsInstances[sharedObjectID] = WeakReference(this as F);
@@ -216,17 +252,32 @@ abstract class SharedObjectField<
   /// The [SharedObject] ([O]) of this instance. This [SharedObject] will be
   /// automatically shared among `Isolate` copies.
   ///
-  /// See [isAuxiliaryInstance].
+  /// See [isAuxiliaryInstance], [isResolvingReference] and [sharedObjectAsync].
   O get sharedObject {
     _setupInstance();
 
-    var sharedStored = _instanceHandler._sharedObjectExpando[this];
-    if (sharedStored == null) {
-      throw StateError(
-          "After `_setupInstance`, `sharedStored` should be defined at `_sharedStoreExpando`");
+    var o = _instanceHandler._sharedObjectExpando[this];
+    if (o == null) {
+      if (_resolvingReference) {
+        throw StateError(
+            "Trying to get `sharedObject` before it's resolved. See `isResolvingReference` and `sharedObjectAsync`.");
+      } else {
+        throw StateError(
+            "After `_setupInstance`, `sharedObject` should be defined at `_sharedStoreExpando` (resolvingReference: $_resolvingReference)");
+      }
     }
 
-    return sharedStored;
+    return o;
+  }
+
+  /// Asynchronous version of [sharedObject].
+  /// See [isResolvingReference].
+  FutureOr<O> get sharedObjectAsync {
+    if (!_resolvingReference) {
+      return sharedObject;
+    }
+
+    return _resolvingReferenceAsync!;
   }
 
   String get runtimeTypeName => '$F';

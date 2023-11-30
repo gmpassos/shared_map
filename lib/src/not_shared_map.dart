@@ -1,6 +1,7 @@
 import 'shared_map_base.dart';
 import 'shared_map_cached.dart';
 import 'shared_object.dart';
+import 'shared_reference.dart';
 
 /// NOT shared implementation of [SharedStore].
 class NotSharedStore implements SharedStore {
@@ -35,6 +36,21 @@ class NotSharedStore implements SharedStore {
   @override
   SharedStoreReference sharedReference() =>
       _sharedReference ??= NotSharedStoreReference(this);
+
+  @override
+  O? getSharedObject<O extends ReferenceableType>(String id, {Type? t}) => null;
+
+  @override
+  R? getSharedObjectReference<O extends ReferenceableType,
+          R extends SharedReference>(String id, {Type? t}) =>
+      null;
+
+  @override
+  void registerSharedObject<O extends ReferenceableType>(O o) {
+    if (o is SharedMap) {
+      throw StateError("Can't register a `SharedMap`: $o");
+    }
+  }
 }
 
 /// NOT shared implementation of [SharedMap].
@@ -311,6 +327,12 @@ class NotSharedStoreField extends NotSharedObject implements SharedStoreField {
   SharedStore get sharedObject => sharedStore;
 
   @override
+  SharedStore get sharedObjectAsync => sharedStore;
+
+  @override
+  bool get isResolvingReference => false;
+
+  @override
   String get sharedObjectID => sharedStoreID;
 
   @override
@@ -330,6 +352,12 @@ class NotSharedMapField<K, V> extends NotSharedObject
   SharedMap<K, V> get sharedObject => sharedMap;
 
   @override
+  SharedMap<K, V> get sharedObjectAsync => sharedMap;
+
+  @override
+  bool get isResolvingReference => false;
+
+  @override
   String get sharedObjectID => sharedMapID;
 
   @override
@@ -343,6 +371,9 @@ class NotSharedMapField<K, V> extends NotSharedObject
 
   @override
   SharedMap<K, V> get sharedMap => _notSharedMap;
+
+  @override
+  SharedMap<K, V> get sharedMapAsync => _notSharedMap;
 
   @override
   SharedMap<K, V> sharedMapCached({Duration? timeout}) =>
