@@ -331,8 +331,8 @@ class SharedStoreField extends SharedObjectField<SharedStoreReference,
   SharedStoreField._fromID(super.sharedObjectID, {super.sharedObjectReference})
       : super.fromID(instanceHandler: _instanceHandler);
 
-  SharedStoreField._fromIDGeneric(String id)
-      : super.fromID(id, instanceHandler: _instanceHandlerGeneric);
+  SharedStoreField._fromIDGeneric(super.id)
+      : super.fromID(instanceHandler: _instanceHandlerGeneric);
 
   factory SharedStoreField(String id) => _instanceHandler.fromID(id);
 

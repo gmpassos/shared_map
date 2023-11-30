@@ -1,3 +1,7 @@
+## 1.1.5
+
+- lints: ^3.0.0
+
 ## 1.1.4
 
 - Dart CI: Added `test_chrome`.

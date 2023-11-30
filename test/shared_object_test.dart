@@ -339,12 +339,11 @@ class MyCounterField
 
   final SharedStoreField _sharedStoreField;
 
-  MyCounterField._fromID(String id, SharedStoreReference sharedStoreReference,
+  MyCounterField._fromID(super.id, SharedStoreReference sharedStoreReference,
       {super.sharedObjectReference})
       : _sharedStoreField =
             SharedStoreField.from(sharedStoreReference: sharedStoreReference),
-        super.fromID(id,
-            instanceHandler: _instanceHandler(sharedStoreReference));
+        super.fromID(instanceHandler: _instanceHandler(sharedStoreReference));
 
   SharedStore get sharedStore => _sharedStoreField.sharedStore;
 }

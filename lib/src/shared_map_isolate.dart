@@ -35,7 +35,7 @@ mixin _SharedStoreIsolate implements SharedStore {
     if (ref != null) {
       var prev = ref.target;
       if (prev == null) {
-        sharedObjects.remove(ref);
+        sharedObjects.remove(id);
       } else {
         return prev as O;
       }
@@ -59,7 +59,7 @@ mixin _SharedStoreIsolate implements SharedStore {
     if (ref != null) {
       var prev = ref.target;
       if (prev == null) {
-        sharedObjects.remove(ref);
+        sharedObjects.remove(id);
       } else {
         if (identical(prev, o)) {
           return;
@@ -83,7 +83,7 @@ enum _SharedStoreIsolateOperation {
 class _SharedStoreIsolateMain
     extends SharedObjectIsolateMain<SharedStoreReferenceIsolate>
     with _SharedStoreIsolate {
-  _SharedStoreIsolateMain(String id) : super(id) {
+  _SharedStoreIsolateMain(super.id) {
     _setupInstance();
   }
 

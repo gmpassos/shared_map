@@ -70,7 +70,7 @@ class SharedStoreGeneric implements SharedStore {
     if (ref != null) {
       var prev = ref.target;
       if (prev == null) {
-        sharedObjects.remove(ref);
+        sharedObjects.remove(id);
       } else {
         return prev as O;
       }
@@ -101,7 +101,7 @@ class SharedStoreGeneric implements SharedStore {
     if (ref != null) {
       var prev = ref.target;
       if (prev == null) {
-        sharedObjects.remove(ref);
+        sharedObjects.remove(id);
       } else {
         if (identical(prev, o)) {
           return;
