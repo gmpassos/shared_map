@@ -138,6 +138,15 @@ void _doTest<K, V, T extends SharedMap<K, V>>(
         }
       }
 
+      var up1 = await m1.update('x', (k, v) => (v ?? 100) + 11);
+      expect(up1, equals(111));
+
+      var up2 = await m1.update('x', (k, v) => (v ?? 100) + 1);
+      expect(up2, equals(112));
+
+      var up3 = await m1.update('x', (k, v) => (v ?? 100) + 1);
+      expect(up3, equals(113));
+
       // Finish NotSharedMap test:
       if (m1 is NotSharedMap) {
         {
@@ -199,21 +208,21 @@ void _doTest<K, V, T extends SharedMap<K, V>>(
       expect(await _asFuture(m1).get('a'), equals(333));
       expect(await _asFutureOr(m1).get('a'), equals(333));
 
-      expect(await m1.keys(), equals(['a', 'b', 'c']));
-      expect(await m1.length(), equals(3));
+      expect(await m1.keys(), equals(['a', 'b', 'c', 'x']));
+      expect(await m1.length(), equals(4));
 
-      expect(await _asFuture(m1).keys(), equals(['a', 'b', 'c']));
-      expect(await _asFuture(m1).values(), equals([333, 2001, 3001]));
+      expect(await _asFuture(m1).keys(), equals(['a', 'b', 'c', 'x']));
+      expect(await _asFuture(m1).values(), equals([333, 2001, 3001, 113]));
       expect((await _asFuture(m1).entries()).map((e) => (e.key, e.value)),
-          equals([('a', 333), ('b', 2001), ('c', 3001)]));
-      expect(await _asFuture(m1).length(), equals(3));
+          equals([('a', 333), ('b', 2001), ('c', 3001), ('x', 113)]));
+      expect(await _asFuture(m1).length(), equals(4));
 
-      expect(await _asFutureOr(m1).keys(), equals(['a', 'b', 'c']));
-      expect(await _asFutureOr(m1).values(), equals([333, 2001, 3001]));
+      expect(await _asFutureOr(m1).keys(), equals(['a', 'b', 'c', 'x']));
+      expect(await _asFutureOr(m1).values(), equals([333, 2001, 3001, 113]));
       expect(await _asFutureOr(m1).entries().toRecords(),
-          equals([('a', 333), ('b', 2001), ('c', 3001)]));
+          equals([('a', 333), ('b', 2001), ('c', 3001), ('x', 113)]));
 
-      expect(await _asFutureOr(m1).length(), equals(3));
+      expect(await _asFutureOr(m1).length(), equals(4));
 
       expect(await _asFutureOr(m1).where((k, v) => v == 333).toRecords(),
           equals([('a', 333)]));
@@ -234,17 +243,17 @@ void _doTest<K, V, T extends SharedMap<K, V>>(
 
       expect(await m1.get('a'), isNull);
 
-      expect(await m1.keys(), equals(['b', 'c']));
-      expect(await m1.length(), equals(2));
+      expect(await m1.keys(), equals(['b', 'c', 'x']));
+      expect(await m1.length(), equals(3));
 
-      expect(await m1.removeAll(['b', 'x']), equals([2001, null]));
-      expect(await _asFuture(m1).removeAll(['b', 'x']), equals([null, null]));
-      expect(await _asFutureOr(m1).removeAll(['b', 'x']), equals([null, null]));
+      expect(await m1.removeAll(['b', 'z']), equals([2001, null]));
+      expect(await _asFuture(m1).removeAll(['b', 'z']), equals([null, null]));
+      expect(await _asFutureOr(m1).removeAll(['b', 'z']), equals([null, null]));
 
-      expect(await m1.keys(), equals(['c']));
-      expect(await _asFuture(m1).length(), equals(1));
+      expect(await m1.keys(), equals(['c', 'x']));
+      expect(await _asFuture(m1).length(), equals(2));
 
-      expect(await _asFuture(m1).clear(), equals(1));
+      expect(await _asFuture(m1).clear(), equals(2));
       expect(await m1.length(), equals(0));
 
       expect(await _asFutureOr(m1).clear(), equals(0));

@@ -453,7 +453,7 @@ void main() {
         await Future.delayed(Duration(milliseconds: 100));
 
         var lastVal = 1000;
-        for (var i = 0; i < 11; ++i) {
+        for (var i = 0; i < 1100; ++i) {
           var val = await m5.update('c', up);
           if (val! <= lastVal) {
             throw StateError("Expect > $lastVal ; got: $val");
@@ -478,7 +478,7 @@ void main() {
         await Future.delayed(Duration(milliseconds: 100));
 
         var lastVal = 1000;
-        for (var i = 0; i < 13; ++i) {
+        for (var i = 0; i < 1300; ++i) {
           var val = await m5.update('c', up);
           if (val! <= lastVal) {
             throw StateError("Expect > $lastVal ; got: $val");
@@ -497,7 +497,11 @@ void main() {
 
       var up3 = await m2.get('c');
 
-      expect(up3, equals(1000 + 11 + 13));
+      expect(up3, equals(1000 + 1100 + 1300));
+
+      var up4 = await m2.update('c', (k, v) => (v ?? 0) + 101);
+
+      expect(up4, equals(1000 + 1100 + 1300 + 101));
     });
   });
 
