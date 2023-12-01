@@ -80,6 +80,7 @@ enum SharedMapOperation {
   get,
   put,
   putIfAbsent,
+  update,
   remove,
   removeAll,
   keys,
@@ -109,6 +110,8 @@ extension SharedMapEntryCallbackExtension<K, V>
     }
   }
 }
+
+typedef SharedMapUpdater<K, V> = V? Function(K key, V? value);
 
 /// Base class for [SharedMap] implementations.
 abstract class SharedMap<K, V> extends ReferenceableType {
@@ -197,6 +200,13 @@ abstract class SharedMap<K, V> extends ReferenceableType {
   /// returns the previous value.
   FutureOr<V?> putIfAbsent(K key, V? absentValue);
 
+  /// Updated the [key] value by running the [updater] code in the
+  /// same memory context (`Isolate`) as the main instance.
+  ///
+  /// - Note that if [updater] is a lambda/anonymous [Function],
+  /// any object held by it will be passed through `Isolate`s.
+  FutureOr<V?> update(K key, SharedMapUpdater<K, V> updater);
+
   /// Remove the [key] entry and return the removed value.
   FutureOr<V?> remove(K key);
 
@@ -238,6 +248,9 @@ abstract class SharedMapSync<K, V> implements SharedMap<K, V> {
 
   @override
   V? putIfAbsent(K key, V? absentValue);
+
+  @override
+  V? update(K key, SharedMapUpdater<K, V> updater);
 
   @override
   V? remove(K key);

@@ -411,6 +411,12 @@ class _SharedMapIsolateMain<K, V>
           var putValue = args[2];
           response = putIfAbsent(key, putValue);
         }
+      case SharedMapOperation.update:
+        {
+          var key = args[1];
+          var updater = args[2];
+          response = update(key, updater);
+        }
       case SharedMapOperation.remove:
         {
           var key = args[1];
@@ -484,6 +490,13 @@ class _SharedMapIsolateMain<K, V>
     } else {
       return prev;
     }
+  }
+
+  @override
+  V? update(K key, SharedMapUpdater<K, V> updater) {
+    var prev = _entries[key];
+    var value = updater(key, prev);
+    return put(key, value);
   }
 
   @override
@@ -573,6 +586,10 @@ class _SharedMapIsolateAuxiliary<K, V>
   @override
   Future<V?> putIfAbsent(K key, V? absentValue) =>
       sendRequest([SharedMapOperation.putIfAbsent, key, absentValue]);
+
+  @override
+  Future<V?> update(K key, SharedMapUpdater<K, V> updater) =>
+      sendRequest([SharedMapOperation.update, key, updater]);
 
   @override
   Future<V?> remove(K key) => sendRequest([SharedMapOperation.remove, key]);

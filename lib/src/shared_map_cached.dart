@@ -123,6 +123,12 @@ class SharedMapCached<K, V> implements SharedMap<K, V> {
   }
 
   @override
+  FutureOr<V?> update(K key, SharedMapUpdater<K, V> updater) {
+    var val = _sharedMap.update(key, updater);
+    return _cacheValue(key, val, DateTime.now());
+  }
+
+  @override
   FutureOr<V?> remove(K key) {
     _cache.remove(key);
     return _sharedMap.remove(key);

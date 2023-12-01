@@ -434,6 +434,74 @@ void main() {
 
       expect(events,
           equals([('put', 'a', 11), ('put', 'a', 111), ('rm', 'a', 111)]));
+
+      var up0 = await m2.put('c', 1000);
+
+      expect(up0, equals(1000));
+
+      var up1Async = Isolate.run<int?>(() async {
+        up(String k, int? v) => (v ?? 0) + 1;
+
+        var store5 = SharedStore.fromSharedReference(sharedStoreReference);
+        var m5 = await store5.getSharedMap<String, int>(sharedMapID);
+
+        var up0 = await m5!.get('c');
+        if (up0 != 1000) throw StateError("Expect: 111 ; got: $up0");
+
+        // Ensure that the other parallel update `Isolate`
+        // has time to get the initial value.
+        await Future.delayed(Duration(milliseconds: 100));
+
+        var lastVal = 1000;
+        for (var i = 0; i < 1100; ++i) {
+          var val = await m5.update('c', up);
+          if (val! <= lastVal) {
+            throw StateError("Expect > $lastVal ; got: $val");
+          }
+          lastVal = val;
+        }
+
+        return lastVal;
+      });
+
+      var up2Async = Isolate.run<int?>(() async {
+        up(String k, int? v) => (v ?? 0) + 1;
+
+        var store5 = SharedStore.fromSharedReference(sharedStoreReference);
+        var m5 = await store5.getSharedMap<String, int>(sharedMapID);
+
+        var up0 = await m5!.get('c');
+        if (up0 != 1000) throw StateError("Expect: 111 ; got: $up0");
+
+        // Ensure that the other parallel update `Isolate`
+        // has time to get the initial value.
+        await Future.delayed(Duration(milliseconds: 100));
+
+        var lastVal = 1000;
+        for (var i = 0; i < 1300; ++i) {
+          var val = await m5.update('c', up);
+          if (val! <= lastVal) {
+            throw StateError("Expect > $lastVal ; got: $val");
+          }
+          lastVal = val;
+        }
+
+        return lastVal;
+      });
+
+      var up1 = await up1Async;
+      var up2 = await up2Async;
+
+      expect(up1, greaterThan(1000));
+      expect(up2, greaterThan(1000));
+
+      var up3 = await m2.get('c');
+
+      expect(up3, equals(1000 + 1100 + 1300));
+
+      var up4 = await m2.update('c', (k, v) => (v ?? 0) + 101);
+
+      expect(up4, equals(1000 + 1100 + 1300 + 101));
     });
   });
 
