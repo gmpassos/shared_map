@@ -1,3 +1,8 @@
+## 1.1.6
+
+- `SharedMap`:
+  - Added `update` method.
+
 ## 1.1.5
 
 - lints: ^3.0.0

@@ -156,6 +156,13 @@ class NotSharedMap<K, V> implements SharedMapSync<K, V> {
   }
 
   @override
+  V? update(K key, SharedMapUpdater<K, V> updater) {
+    var prev = _entries[key];
+    var value = updater(key, prev);
+    return put(key, value);
+  }
+
+  @override
   V? remove(K key) {
     var v = _entries.remove(key);
     if (v != null) {
@@ -270,6 +277,10 @@ class _NotSharedMapCache<K, V> implements SharedMapCached<K, V> {
   @override
   V? putIfAbsent(K key, V? absentValue) =>
       _sharedMap.putIfAbsent(key, absentValue);
+
+  @override
+  V? update(K key, SharedMapUpdater<K, V> updater) =>
+      _sharedMap.update(key, updater);
 
   @override
   V? remove(K key) => _sharedMap.remove(key);
