@@ -1,6 +1,7 @@
 import 'shared_map_base.dart';
 import 'shared_map_cached.dart';
 import 'shared_object.dart';
+import 'shared_object_field.dart';
 import 'shared_reference.dart';
 
 /// NOT shared implementation of [SharedStore].
@@ -348,6 +349,12 @@ class NotSharedStoreField extends NotSharedObject implements SharedStoreField {
 
   @override
   SharedStoreReference get sharedReference => _notSharedStore.sharedReference();
+
+  @override
+  SharedFieldInstanceHandler<SharedStoreReference, SharedStore,
+          SharedStoreField>
+      get instanceHandler => throw UnsupportedError(
+          "A `NotSharedStoreField` doesn't have an `instanceHandler`");
 }
 
 class NotSharedMapField<K, V> extends NotSharedObject
@@ -389,4 +396,10 @@ class NotSharedMapField<K, V> extends NotSharedObject
   @override
   SharedMap<K, V> sharedMapCached({Duration? timeout}) =>
       _notSharedMap.cached();
+
+  @override
+  SharedFieldInstanceHandler<SharedMapReference, SharedMap<K, V>,
+          SharedMapField<K, V>>
+      get instanceHandler => throw UnsupportedError(
+          "A `NotSharedMapField` doesn't have an `instanceHandler`");
 }
