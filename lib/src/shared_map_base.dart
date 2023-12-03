@@ -324,6 +324,23 @@ abstract class SharedMapReference extends SharedReference {
   String toString() => 'SharedMapReference${toJson()}';
 }
 
+class _SharedStoreFieldGeneric extends SharedStoreField {
+  static final _instanceHandler = SharedFieldInstanceHandler<
+      SharedStoreReference, SharedStore, SharedStoreField>(
+    fieldInstantiator: _SharedStoreFieldGeneric._fromID,
+    sharedObjectInstantiator: generic.SharedStoreGeneric.from,
+    group: (generic.SharedStoreGeneric, null),
+  );
+
+  _SharedStoreFieldGeneric._fromID(super.sharedObjectID,
+      {super.sharedObjectReference})
+      : super._fromID(instanceHandler: _instanceHandler);
+
+  @override
+  SharedFieldInstanceHandler<SharedStoreReference, SharedStore,
+      SharedStoreField> get instanceHandler => _instanceHandler;
+}
+
 /// A [SharedStore] field/wrapper. This will handle the [SharedStore] in.
 class SharedStoreField extends SharedObjectField<SharedStoreReference,
     SharedStore, SharedStoreField> {
@@ -333,19 +350,12 @@ class SharedStoreField extends SharedObjectField<SharedStoreReference,
     sharedObjectInstantiator: SharedStore.from,
   );
 
-  static final _instanceHandlerGeneric = SharedFieldInstanceHandler<
-      SharedStoreReference, SharedStore, SharedStoreField>(
-    fieldInstantiator: (id, {sharedObjectReference}) =>
-        SharedStoreField._fromIDGeneric(id),
-    sharedObjectInstantiator: generic.SharedStoreGeneric.from,
-    group: (generic.SharedStoreGeneric, null),
-  );
-
-  SharedStoreField._fromID(super.sharedObjectID, {super.sharedObjectReference})
-      : super.fromID(instanceHandler: _instanceHandler);
-
-  SharedStoreField._fromIDGeneric(super.id)
-      : super.fromID(instanceHandler: _instanceHandlerGeneric);
+  SharedStoreField._fromID(super.sharedObjectID,
+      {super.sharedObjectReference,
+      SharedFieldInstanceHandler<SharedStoreReference, SharedStore,
+              SharedStoreField>?
+          instanceHandler})
+      : super.fromID(instanceHandler: instanceHandler ?? _instanceHandler);
 
   factory SharedStoreField(String id) => _instanceHandler.fromID(id);
 
@@ -353,7 +363,7 @@ class SharedStoreField extends SharedObjectField<SharedStoreReference,
     if (o is NotSharedStore) {
       return NotSharedStoreField(o);
     } else if (o is generic.SharedStoreGeneric) {
-      return _instanceHandlerGeneric.fromSharedObject(o);
+      return _SharedStoreFieldGeneric._instanceHandler.fromSharedObject(o);
     }
     return _instanceHandler.fromSharedObject(o);
   }
@@ -420,6 +430,10 @@ class SharedStoreField extends SharedObjectField<SharedStoreReference,
   String get sharedStoreID => sharedObjectID;
 
   SharedStore get sharedStore => sharedObject;
+
+  @override
+  SharedFieldInstanceHandler<SharedStoreReference, SharedStore,
+      SharedStoreField> get instanceHandler => _instanceHandler;
 }
 
 /// A [SharedStore] field/wrapper. This will handle the [SharedStore] in.

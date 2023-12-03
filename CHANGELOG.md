@@ -1,3 +1,9 @@
+## 1.1.7
+
+- `SharedObjectField`:
+  - Expose getter `instanceHandler` to allow implementation override.
+  - Optimize `sharedObject` resolution.
+
 ## 1.1.6
 
 - `SharedMap`:

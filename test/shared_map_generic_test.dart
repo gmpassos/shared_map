@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:shared_map/shared_map.dart';
 import 'package:shared_map/src/not_shared_map.dart';
 import 'package:shared_map/src/shared_map_generic.dart';
+import 'package:shared_map/src/shared_object_field.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -130,11 +131,29 @@ void _doTest<K, V, T extends SharedMap<K, V>>(
 
           expect(await m2!.get('a'), isNull);
           expect(await m2.keys(), equals([]));
+
+          expect(() => storeField1.instanceHandler,
+              throwsA(isA<UnsupportedError>()));
+
+          expect(() => sharedMapField.instanceHandler,
+              throwsA(isA<UnsupportedError>()));
         } else {
           expect(m2, isA<SharedMap<String, int>>());
 
           expect(await m2!.get('a'), equals(222));
           expect(await m2.keys(), equals(['a', 'b', 'c']));
+
+          expect(
+              storeField1.instanceHandler,
+              isA<
+                  SharedFieldInstanceHandler<SharedStoreReference, SharedStore,
+                      SharedStoreField>>());
+
+          expect(
+              sharedMapField.instanceHandler,
+              isA<
+                  SharedFieldInstanceHandler<SharedMapReference,
+                      SharedMap<String, int>, SharedMapField<String, int>>>());
         }
       }
 
@@ -174,7 +193,6 @@ void _doTest<K, V, T extends SharedMap<K, V>>(
 
           expect(await cached2.putIfAbsent('a', 6666), equals(333));
         }
-
         return;
       }
 
