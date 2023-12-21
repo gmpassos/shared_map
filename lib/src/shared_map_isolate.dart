@@ -160,6 +160,10 @@ class _SharedStoreIsolateMain
         throw StateError(
             "[$this] Can't cast `sharedMap` to `SharedMap<$K, $V>`: $sharedMap");
       }
+
+      sharedMap.setCallbacksDynamic<K, V>(
+          onInitialize: onInitialize, onPut: onPut, onRemove: onRemove);
+
       return sharedMap as SharedMap<K, V>;
     }
 

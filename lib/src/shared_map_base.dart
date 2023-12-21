@@ -177,6 +177,8 @@ abstract class SharedMap<K, V> extends ReferenceableType {
   /// Optional callback for when the [SharedMap] instance is initialized.
   ///
   /// - If running on the `Isolate` version, it will be triggered only on the "server" side.
+  /// - Note: Ensure that the `onInitialize` callback is passed in the constructor
+  ///   or to the [SharedStore.getSharedMap], and refrain from setting it after instance creation.
   SharedMapEventCallback? get onInitialize;
 
   set onInitialize(SharedMapEventCallback? callback);
