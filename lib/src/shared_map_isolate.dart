@@ -150,6 +150,7 @@ class _SharedStoreIsolateMain
   @override
   SharedMap<K, V>? getSharedMap<K, V>(
     String id, {
+    SharedMapEventCallback? onInitialize,
     SharedMapEntryCallback<K, V>? onPut,
     SharedMapEntryCallback<K, V>? onRemove,
   }) {
@@ -163,7 +164,10 @@ class _SharedStoreIsolateMain
     }
 
     var o = createSharedMap<K, V>(sharedStore: this, id: id);
-    o.setCallbacksDynamic<K, V>(onPut: onPut, onRemove: onRemove);
+
+    o.setCallbacksDynamic<K, V>(
+        onInitialize: onInitialize, onPut: onPut, onRemove: onRemove);
+
     return o;
   }
 
@@ -249,13 +253,15 @@ class _SharedStoreIsolateAuxiliary
   @override
   FutureOr<SharedMap<K, V>?> getSharedMap<K, V>(
     String id, {
+    SharedMapEventCallback? onInitialize,
     SharedMapEntryCallback<K, V>? onPut,
     SharedMapEntryCallback<K, V>? onRemove,
   }) {
     var sharedMap = _sharedMaps[id];
     if (sharedMap != null) {
       var o = sharedMap as SharedMap<K, V>;
-      o.setCallbacksDynamic<K, V>(onPut: onPut, onRemove: onRemove);
+      o.setCallbacksDynamic<K, V>(
+          onInitialize: onInitialize, onPut: onPut, onRemove: onRemove);
       return o;
     }
 
@@ -266,18 +272,20 @@ class _SharedStoreIsolateAuxiliary
     if (sharedMapsPort != null) {
       var ref =
           SharedMapReferenceIsolate(id, sharedStoreReference, sharedMapsPort);
-      return _resolveSharedMapFromReference(ref, onPut, onRemove);
+      return _resolveSharedMapFromReference(ref, onInitialize, onPut, onRemove);
     }
 
     _CallCasted<K, V> callCasted = _buildCallCasted<K, V>();
 
     return sendRequest<SharedMapReference>(
             [_SharedStoreIsolateOperation.getSharedMap, id, callCasted])
-        .then((ref) => _resolveSharedMapFromReference(ref, onPut, onRemove));
+        .then((ref) =>
+            _resolveSharedMapFromReference(ref, onInitialize, onPut, onRemove));
   }
 
   FutureOr<SharedMap<K, V>> _resolveSharedMapFromReference<K, V>(
     SharedMapReference? ref,
+    SharedMapEventCallback? onInitialize,
     SharedMapEntryCallback<K, V>? onPut,
     SharedMapEntryCallback<K, V>? onRemove,
   ) {
@@ -287,7 +295,10 @@ class _SharedStoreIsolateAuxiliary
     }
 
     var o = createSharedMap<K, V>(sharedReference: ref);
-    o.setCallbacksDynamic<K, V>(onPut: onPut, onRemove: onRemove);
+
+    o.setCallbacksDynamic<K, V>(
+        onInitialize: onInitialize, onPut: onPut, onRemove: onRemove);
+
     return o;
   }
 
@@ -340,6 +351,9 @@ class _SharedStoreIsolateAuxiliary
 mixin _SharedMapIsolate<K, V>
     implements SharedMap<K, V>, SharedObjectIsolate<SharedMapReferenceIsolate> {
   @override
+  SharedMapEventCallback? onInitialize;
+
+  @override
   SharedMapEntryCallback<K, V>? onPut;
 
   @override
@@ -347,8 +361,14 @@ mixin _SharedMapIsolate<K, V>
 
   @override
   void setCallbacks(
-      {SharedMapEntryCallback<K, V>? onPut,
+      {SharedMapEventCallback? onInitialize,
+      SharedMapEntryCallback<K, V>? onPut,
       SharedMapEntryCallback<K, V>? onRemove}) {
+    if (onInitialize != null && this.onInitialize == null) {
+      this.onInitialize = onInitialize;
+      onInitialize(this);
+    }
+
     if (onPut != null) {
       this.onPut ??= onPut;
     }
@@ -360,8 +380,14 @@ mixin _SharedMapIsolate<K, V>
 
   @override
   void setCallbacksDynamic<K1, V1>(
-      {SharedMapEntryCallback<K1, V1>? onPut,
+      {SharedMapEventCallback? onInitialize,
+      SharedMapEntryCallback<K1, V1>? onPut,
       SharedMapEntryCallback<K1, V1>? onRemove}) {
+    if (onInitialize != null && this.onInitialize == null) {
+      this.onInitialize = onInitialize;
+      onInitialize(this);
+    }
+
     if (onPut is SharedMapEntryCallback<K, V>) {
       this.onPut ??= onPut as SharedMapEntryCallback<K, V>;
     }

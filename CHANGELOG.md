@@ -1,3 +1,10 @@
+## 1.1.8
+
+- Update SharedMap instances to include `onInitialize` callback:
+
+- test: ^1.24.9
+- coverage: ^1.7.2
+
 ## 1.1.7
 
 - `SharedObjectField`:

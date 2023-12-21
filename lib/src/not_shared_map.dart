@@ -19,6 +19,7 @@ class NotSharedStore implements SharedStore {
   @override
   SharedMap<K, V>? getSharedMap<K, V>(
     String id, {
+    SharedMapEventCallback? onInitialize,
     SharedMapEntryCallback<K, V>? onPut,
     SharedMapEntryCallback<K, V>? onRemove,
   }) {
@@ -27,7 +28,8 @@ class NotSharedStore implements SharedStore {
         ? notSharedMap as SharedMap<K, V>
         : NotSharedMap<K, V>();
 
-    o.setCallbacksDynamic<K, V>(onPut: onPut, onRemove: onRemove);
+    o.setCallbacksDynamic<K, V>(
+        onInitialize: onInitialize, onPut: onPut, onRemove: onRemove);
 
     return o;
   }
@@ -69,6 +71,9 @@ class NotSharedMap<K, V> implements SharedMapSync<K, V> {
   NotSharedMap() : id = 'NotSharedMap#${++_notSharedIDCount}';
 
   @override
+  SharedMapEventCallback? onInitialize;
+
+  @override
   SharedMapEntryCallback<K, V>? onPut;
 
   @override
@@ -76,8 +81,14 @@ class NotSharedMap<K, V> implements SharedMapSync<K, V> {
 
   @override
   void setCallbacks(
-      {SharedMapEntryCallback<K, V>? onPut,
+      {SharedMapEventCallback? onInitialize,
+      SharedMapEntryCallback<K, V>? onPut,
       SharedMapEntryCallback<K, V>? onRemove}) {
+    if (onInitialize != null && this.onInitialize == null) {
+      this.onInitialize = onInitialize;
+      onInitialize(this);
+    }
+
     if (onPut != null) {
       this.onPut ??= onPut;
     }
@@ -89,8 +100,14 @@ class NotSharedMap<K, V> implements SharedMapSync<K, V> {
 
   @override
   void setCallbacksDynamic<K1, V1>(
-      {SharedMapEntryCallback<K1, V1>? onPut,
+      {SharedMapEventCallback? onInitialize,
+      SharedMapEntryCallback<K1, V1>? onPut,
       SharedMapEntryCallback<K1, V1>? onRemove}) {
+    if (onInitialize != null && this.onInitialize == null) {
+      this.onInitialize = onInitialize;
+      onInitialize(this);
+    }
+
     if (onPut is SharedMapEntryCallback<K, V>) {
       this.onPut ??= onPut as SharedMapEntryCallback<K, V>;
     }
@@ -231,6 +248,13 @@ class _NotSharedMapCache<K, V> implements SharedMapCached<K, V> {
   _NotSharedMapCache(this._sharedMap) : timeout = Duration.zero;
 
   @override
+  SharedMapEventCallback? get onInitialize => _sharedMap.onInitialize;
+
+  @override
+  set onInitialize(SharedMapEventCallback? callback) =>
+      _sharedMap.onInitialize = callback;
+
+  @override
   SharedMapEntryCallback<K, V>? get onPut => _sharedMap.onPut;
 
   @override
@@ -246,15 +270,19 @@ class _NotSharedMapCache<K, V> implements SharedMapCached<K, V> {
 
   @override
   void setCallbacks(
-          {SharedMapEntryCallback<K, V>? onPut,
+          {SharedMapEventCallback? onInitialize,
+          SharedMapEntryCallback<K, V>? onPut,
           SharedMapEntryCallback<K, V>? onRemove}) =>
-      _sharedMap.setCallbacks(onPut: onPut, onRemove: onRemove);
+      _sharedMap.setCallbacks(
+          onInitialize: onInitialize, onPut: onPut, onRemove: onRemove);
 
   @override
   void setCallbacksDynamic<K1, V1>(
-          {SharedMapEntryCallback<K1, V1>? onPut,
+          {SharedMapEventCallback? onInitialize,
+          SharedMapEntryCallback<K1, V1>? onPut,
           SharedMapEntryCallback<K1, V1>? onRemove}) =>
-      _sharedMap.setCallbacksDynamic(onPut: onPut, onRemove: onRemove);
+      _sharedMap.setCallbacksDynamic(
+          onInitialize: onInitialize, onPut: onPut, onRemove: onRemove);
 
   @override
   String get id => _sharedMap.id;

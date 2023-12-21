@@ -284,44 +284,58 @@ void _doTest<K, V, T extends SharedMap<K, V>>(
         expect(store2.id, equals('t2'));
       }
 
-      var m2 = await store2.getSharedMap<String, int>('m2');
+      var events = <(String, String, int?)>[];
+
+      expect(events, isEmpty);
+
+      var m2 = await store2.getSharedMap<String, int>(
+        'm2',
+        onInitialize: (o) => events.add(('init', o.id, -1)),
+        onPut: (k, v) => events.add(('put', k, v)),
+        onRemove: (k, v) => events.add(('rm', k, v)),
+      );
+
       expect(m2, isNotNull);
 
       if (m2 is! NotSharedMap) {
-        expect(m2!.id, equals('m2'));
+        expect(m2?.id, equals('m2'));
       }
 
-      var events = <(String, String, int?)>[];
+      final m2ID = m2!.id;
 
-      m2!.onPut = (k, v) => events.add(('put', k, v));
-      m2.onRemove = (k, v) => events.add(('rm', k, v));
-
-      expect(events, isEmpty);
+      expect(events, equals([('init', m2ID, -1)]));
 
       var va1 = await m2.get('a');
       expect(va1, isNull);
 
-      expect(events, isEmpty);
+      expect(events, equals([('init', m2ID, -1)]));
 
       var va2 = m2.put('a', 11);
       expect(va2, equals(11));
 
-      expect(events, equals([('put', 'a', 11)]));
+      expect(events, equals([('init', m2ID, -1), ('put', 'a', 11)]));
 
       var va3 = m2.putIfAbsent('a', 111);
       expect(va3, equals(11));
 
-      expect(events, equals([('put', 'a', 11)]));
+      expect(events, equals([('init', m2ID, -1), ('put', 'a', 11)]));
 
       var va4 = m2.put('a', 111);
       expect(va4, equals(111));
 
-      expect(events, equals([('put', 'a', 11), ('put', 'a', 111)]));
+      expect(events,
+          equals([('init', m2ID, -1), ('put', 'a', 11), ('put', 'a', 111)]));
 
       expect(m2.remove("a"), equals(111));
 
-      expect(events,
-          equals([('put', 'a', 11), ('put', 'a', 111), ('rm', 'a', 111)]));
+      expect(
+          events,
+          equals([
+            ('init', m2ID, -1),
+            ('put', 'a', 11),
+            ('put', 'a', 111),
+            ('rm', 'a', 111)
+          ]));
     });
 
     test('newUUID', () async {
