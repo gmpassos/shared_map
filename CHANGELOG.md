@@ -2,6 +2,9 @@
 
 - Update SharedMap instances to include `onInitialize` callback:
 
+- New `SharedMapExtension`:
+  - Added `isAuxiliaryInstance`, `isMainInstance`, `isSharedObject`, `asSharedObject`.
+
 - test: ^1.24.9
 - coverage: ^1.7.2
 

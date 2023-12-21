@@ -3,7 +3,6 @@
 import 'dart:isolate';
 
 import 'package:shared_map/shared_map.dart';
-import 'package:shared_map/shared_object_isolate.dart';
 import 'package:shared_map/src/shared_map_isolate.dart';
 import 'package:test/test.dart';
 
@@ -381,13 +380,25 @@ void main() {
         var store3 = SharedStore.fromSharedReference(sharedStoreReference);
         var m3 = await store3.getSharedMap<String, int>(sharedMapID,
             onInitialize: (o) {
-          var sharedObj = o as SharedObject;
-          var aux = sharedObj.isAuxiliaryInstance ? 'aux' : 'main';
+          var aux = o.isAuxiliaryInstance ? 'aux' : 'main';
           events2.add(('init', o.id, aux));
         });
 
         if (events2.length != 1 || events2[0] != ('init', sharedMapID, 'aux')) {
           throw StateError("Invalid `events2` state: $events2");
+        }
+
+        if (!m3.isAuxiliaryInstance) {
+          throw StateError("Invalid `isAuxiliaryInstance`: $m3");
+        }
+        if (m3.isMainInstance) {
+          throw StateError("Invalid `isMainInstance`: $m3");
+        }
+        if (!m3.isSharedObject) {
+          throw StateError("Invalid `isSharedObject`: $m3");
+        }
+        if (m3.asSharedObject == null) {
+          throw StateError("Invalid `asSharedObject`: $m3");
         }
 
         var va0 = await m3?.get('a');
@@ -398,12 +409,16 @@ void main() {
 
       var m2 = await store2.getSharedMap<String, int>(sharedMapID,
           onInitialize: (o) {
-        var sharedObj = o as SharedObject;
-        var aux = sharedObj.isAuxiliaryInstance ? 'aux' : 'main';
+        var aux = o.isAuxiliaryInstance ? 'aux' : 'main';
         events.add(('init', o.id, aux));
       });
 
       expect(m2, isNotNull);
+
+      expect(m2?.isAuxiliaryInstance, isFalse);
+      expect(m2?.isMainInstance, isTrue);
+      expect(m2?.isSharedObject, isTrue);
+      expect(m2?.asSharedObject, isNotNull);
 
       m2!.onPut = (k, v) => events.add(('put', k, v));
       m2.onRemove = (k, v) => events.add(('rm', k, v));

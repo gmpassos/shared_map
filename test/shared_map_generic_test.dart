@@ -297,6 +297,11 @@ void _doTest<K, V, T extends SharedMap<K, V>>(
 
       expect(m2, isNotNull);
 
+      expect(m2.isAuxiliaryInstance, isFalse);
+      expect(m2.isMainInstance, isFalse);
+      expect(m2.isSharedObject, isFalse);
+      expect(m2.asSharedObject, isNull);
+
       if (m2 is! NotSharedMap) {
         expect(m2?.id, equals('m2'));
       }

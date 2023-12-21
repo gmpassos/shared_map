@@ -6,6 +6,7 @@ import 'shared_map_extension.dart';
 import 'shared_map_generic.dart'
     if (dart.library.isolate) 'shared_map_isolate.dart';
 import 'shared_map_generic.dart' as generic;
+import 'shared_object.dart';
 import 'shared_object_field.dart';
 import 'shared_reference.dart';
 import 'utils.dart';
@@ -254,6 +255,29 @@ abstract class SharedMap<K, V> extends ReferenceableType {
 
   /// Returns a cached version of this instance.
   SharedMapCached<K, V> cached({Duration? timeout});
+}
+
+extension SharedMapExtension<K, V> on SharedMap<K, V>? {
+  /// Alias to [SharedObject.isAuxiliaryInstance] if the [SharedMap] [isSharedObject].
+  bool get isAuxiliaryInstance => asSharedObject?.isAuxiliaryInstance ?? false;
+
+  /// Alias to [SharedObject.isMainInstance] if the [SharedMap] [isSharedObject].
+  bool get isMainInstance => asSharedObject?.isMainInstance ?? false;
+
+  /// Returns `true` if the [SharedMap] is a [SharedObject].
+  /// See [asSharedObject].
+  bool get isSharedObject => asSharedObject != null;
+
+  /// Cast this [SharedMap] instance to a [SharedObject] if possible,
+  /// otherwise, return `null`.
+  SharedObject? get asSharedObject {
+    var self = this;
+    if (self is SharedObject) {
+      var sharedObj = self as SharedObject;
+      return sharedObj;
+    }
+    return null;
+  }
 }
 
 /// Synchronized version of a [SharedMap] implementation.
