@@ -1,3 +1,14 @@
+## 1.1.8
+
+- `SharedMap`:
+  - Add `onInitialize` and `onAbsent` callback:
+
+- New `SharedMapExtension`:
+  - Added `isAuxiliaryInstance`, `isMainInstance`, `isSharedObject`, `asSharedObject`.
+
+- test: ^1.24.9
+- coverage: ^1.7.2
+
 ## 1.1.7
 
 - `SharedObjectField`:

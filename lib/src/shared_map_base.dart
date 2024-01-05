@@ -6,6 +6,7 @@ import 'shared_map_extension.dart';
 import 'shared_map_generic.dart'
     if (dart.library.isolate) 'shared_map_isolate.dart';
 import 'shared_map_generic.dart' as generic;
+import 'shared_object.dart';
 import 'shared_object_field.dart';
 import 'shared_reference.dart';
 import 'utils.dart';
@@ -49,6 +50,8 @@ abstract class SharedStore extends ReferenceableType {
   /// Returns a [SharedMap] with [id] in this [SharedStore] instance.
   FutureOr<SharedMap<K, V>?> getSharedMap<K, V>(
     String id, {
+    SharedMapEventCallback? onInitialize,
+    SharedMapKeyCallback<K, V>? onAbsent,
     SharedMapEntryCallback<K, V>? onPut,
     SharedMapEntryCallback<K, V>? onRemove,
   });
@@ -91,6 +94,10 @@ enum SharedMapOperation {
   where,
 }
 
+typedef SharedMapEventCallback = void Function(SharedMap sharedMap);
+
+typedef SharedMapKeyCallback<K, V> = V? Function(K key);
+
 typedef SharedMapEntryCallback<K, V> = void Function(K key, V? value);
 
 extension SharedMapEntryCallbackExtension<K, V>
@@ -118,10 +125,14 @@ abstract class SharedMap<K, V> extends ReferenceableType {
   /// Creates a [SharedMap] with [id].
   static FutureOr<SharedMap<K, V>> fromID<K, V>(
       SharedStore sharedStore, String id,
-      {SharedMapEntryCallback<K, V>? onPut,
+      {SharedMapEventCallback? onInitialize,
+      SharedMapKeyCallback<K, V>? onAbsent,
+      SharedMapEntryCallback<K, V>? onPut,
       SharedMapEntryCallback<K, V>? onRemove}) {
     return createSharedMapAsync<K, V>(sharedStore: sharedStore, id: id)
         .setCallbacks(
+      onInitialize: onInitialize,
+      onAbsent: onAbsent,
       onPut: onPut,
       onRemove: onRemove,
     );
@@ -147,18 +158,27 @@ abstract class SharedMap<K, V> extends ReferenceableType {
       SharedStoreReference? sharedStoreReference,
       SharedStore? sharedStore,
       String? sharedStoreID,
+      SharedMapEventCallback? onInitialize,
+      SharedMapKeyCallback<K, V>? onAbsent,
       SharedMapEntryCallback<K, V>? onPut,
       SharedMapEntryCallback<K, V>? onRemove}) {
     if (reference != null) {
       return SharedMap.fromSharedReference(reference)
-        ..setCallbacks(onPut: onPut, onRemove: onRemove);
+        ..setCallbacks(
+            onInitialize: onInitialize,
+            onAbsent: onAbsent,
+            onPut: onPut,
+            onRemove: onRemove);
     }
 
     if (id != null) {
       sharedStore ??=
           SharedStore.from(reference: sharedStoreReference, id: sharedStoreID);
       return SharedMap.fromID(sharedStore, id,
-          onPut: onPut, onRemove: onRemove);
+          onInitialize: onInitialize,
+          onAbsent: onAbsent,
+          onPut: onPut,
+          onRemove: onRemove);
     }
 
     throw MultiNullArguments(['reference', 'id']);
@@ -166,6 +186,22 @@ abstract class SharedMap<K, V> extends ReferenceableType {
 
   /// The [SharedStore] where this instance is stored/handled.
   SharedStore get sharedStore;
+
+  /// Optional callback for when the [SharedMap] instance is initialized.
+  ///
+  /// - If running on the `Isolate` version, it will be triggered only on the "server" side.
+  /// - Note: Ensure that the `onInitialize` callback is passed in the constructor
+  ///   or to the [SharedStore.getSharedMap], and refrain from setting it after instance creation.
+  SharedMapEventCallback? get onInitialize;
+
+  set onInitialize(SharedMapEventCallback? callback);
+
+  /// Optional callback for when an entry is accessed and is absent.
+  ///
+  /// - If running on the `Isolate` version, it will be triggered only on the "server" side.
+  SharedMapKeyCallback<K, V>? get onAbsent;
+
+  set onAbsent(SharedMapKeyCallback<K, V>? callback);
 
   /// Optional callback for when [put] is called.
   ///
@@ -182,11 +218,15 @@ abstract class SharedMap<K, V> extends ReferenceableType {
   set onRemove(SharedMapEntryCallback<K, V>? callback);
 
   void setCallbacks(
-      {SharedMapEntryCallback<K, V>? onPut,
+      {SharedMapEventCallback? onInitialize,
+      SharedMapKeyCallback<K, V>? onAbsent,
+      SharedMapEntryCallback<K, V>? onPut,
       SharedMapEntryCallback<K, V>? onRemove});
 
   void setCallbacksDynamic<K1, V1>(
-      {SharedMapEntryCallback<K1, V1>? onPut,
+      {SharedMapEventCallback? onInitialize,
+      SharedMapKeyCallback<K1, V1>? onAbsent,
+      SharedMapEntryCallback<K1, V1>? onPut,
       SharedMapEntryCallback<K1, V1>? onRemove});
 
   /// Returns the value of [key].
@@ -236,6 +276,29 @@ abstract class SharedMap<K, V> extends ReferenceableType {
 
   /// Returns a cached version of this instance.
   SharedMapCached<K, V> cached({Duration? timeout});
+}
+
+extension SharedMapExtension<K, V> on SharedMap<K, V>? {
+  /// Alias to [SharedObject.isAuxiliaryInstance] if the [SharedMap] [isSharedObject].
+  bool get isAuxiliaryInstance => asSharedObject?.isAuxiliaryInstance ?? false;
+
+  /// Alias to [SharedObject.isMainInstance] if the [SharedMap] [isSharedObject].
+  bool get isMainInstance => asSharedObject?.isMainInstance ?? false;
+
+  /// Returns `true` if the [SharedMap] is a [SharedObject].
+  /// See [asSharedObject].
+  bool get isSharedObject => asSharedObject != null;
+
+  /// Cast this [SharedMap] instance to a [SharedObject] if possible,
+  /// otherwise, return `null`.
+  SharedObject? get asSharedObject {
+    var self = this;
+    if (self is SharedObject) {
+      var sharedObj = self as SharedObject;
+      return sharedObj;
+    }
+    return null;
+  }
 }
 
 /// Synchronized version of a [SharedMap] implementation.
@@ -443,6 +506,8 @@ class SharedMapField<K, V> extends SharedObjectField<SharedMapReference,
   static SharedFieldInstanceHandler<SharedMapReference, SharedMap<K, V>,
       SharedMapField<K, V>> _instanceHandler<K, V>(
     SharedStoreReference sharedStoreReference,
+    SharedMapEventCallback? onInitialize,
+    SharedMapKeyCallback<K, V>? onAbsent,
     SharedMapEntryCallback<K, V>? onPut,
     SharedMapEntryCallback<K, V>? onRemove,
   ) =>
@@ -452,12 +517,16 @@ class SharedMapField<K, V> extends SharedObjectField<SharedMapReference,
                 id,
                 sharedObjectReference: sharedObjectReference,
                 sharedStoreReference,
+                onInitialize,
+                onAbsent,
                 onPut,
                 onRemove),
         sharedObjectInstantiator: ({reference, id}) => SharedMap.from(
             reference: reference,
             id: id,
             sharedStoreReference: sharedStoreReference,
+            onInitialize: onInitialize,
+            onAbsent: onAbsent,
             onPut: onPut,
             onRemove: onRemove),
         group: (SharedStore, sharedStoreReference.id),
@@ -468,6 +537,8 @@ class SharedMapField<K, V> extends SharedObjectField<SharedMapReference,
     SharedStore? sharedStore,
     SharedStoreReference? sharedStoreReference,
     String? sharedStoreID,
+    SharedMapEventCallback? onInitialize,
+    SharedMapKeyCallback<K, V>? onAbsent,
     SharedMapEntryCallback<K, V>? onPut,
     SharedMapEntryCallback<K, V>? onRemove,
   }) =>
@@ -482,6 +553,8 @@ class SharedMapField<K, V> extends SharedObjectField<SharedMapReference,
                     'sharedStoreReference',
                     'sharedStoreID'
                   ])),
+              onInitialize,
+              onAbsent,
               onPut,
               onRemove)
           .fromID(id);
@@ -491,8 +564,8 @@ class SharedMapField<K, V> extends SharedObjectField<SharedMapReference,
       return NotSharedMapField<K, V>(o);
     }
 
-    return _instanceHandler<K, V>(
-            o.sharedStore.sharedReference(), o.onPut, o.onRemove)
+    return _instanceHandler<K, V>(o.sharedStore.sharedReference(),
+            o.onInitialize, o.onAbsent, o.onPut, o.onRemove)
         .fromSharedObject(o);
   }
 
@@ -504,6 +577,8 @@ class SharedMapField<K, V> extends SharedObjectField<SharedMapReference,
     SharedStore? sharedStore,
     SharedStoreReference? sharedStoreReference,
     String? sharedStoreID,
+    SharedMapEventCallback? onInitialize,
+    SharedMapKeyCallback<K, V>? onAbsent,
     SharedMapEntryCallback<K, V>? onPut,
     SharedMapEntryCallback<K, V>? onRemove,
   }) {
@@ -515,6 +590,8 @@ class SharedMapField<K, V> extends SharedObjectField<SharedMapReference,
             sharedStore: sharedStore,
             sharedStoreReference: sharedStoreReference,
             sharedStoreID: sharedStoreID,
+            onInitialize: onInitialize,
+            onAbsent: onAbsent,
             onPut: onPut,
             onRemove: onRemove) ??
         (throw MultiNullArguments(
@@ -529,6 +606,8 @@ class SharedMapField<K, V> extends SharedObjectField<SharedMapReference,
     SharedStore? sharedStore,
     SharedStoreReference? sharedStoreReference,
     String? sharedStoreID,
+    SharedMapEventCallback? onInitialize,
+    SharedMapKeyCallback<K, V>? onAbsent,
     SharedMapEntryCallback<K, V>? onPut,
     SharedMapEntryCallback<K, V>? onRemove,
   }) {
@@ -553,6 +632,8 @@ class SharedMapField<K, V> extends SharedObjectField<SharedMapReference,
           sharedStore: sharedStore,
           sharedStoreReference: sharedStoreReference,
           sharedStoreID: sharedStoreID,
+          onInitialize: onInitialize,
+          onAbsent: onAbsent,
           onPut: onPut,
           onRemove: onRemove);
     }
@@ -565,14 +646,16 @@ class SharedMapField<K, V> extends SharedObjectField<SharedMapReference,
   SharedMapField._fromID(
       super.sharedObjectID,
       SharedStoreReference sharedStoreReference,
+      SharedMapEventCallback? onInitialize,
+      SharedMapKeyCallback<K, V>? onAbsent,
       SharedMapEntryCallback<K, V>? onPut,
       SharedMapEntryCallback<K, V>? onRemove,
       {super.sharedObjectReference})
       : _sharedStoreField =
             SharedStoreField.from(sharedStoreReference: sharedStoreReference),
         super.fromID(
-            instanceHandler:
-                _instanceHandler(sharedStoreReference, onPut, onRemove));
+            instanceHandler: _instanceHandler(
+                sharedStoreReference, onInitialize, onAbsent, onPut, onRemove));
 
   SharedStore get sharedStore => _sharedStoreField.sharedStore;
 

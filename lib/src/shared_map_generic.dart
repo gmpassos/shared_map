@@ -41,6 +41,8 @@ class SharedStoreGeneric implements SharedStore {
   @override
   SharedMap<K, V> getSharedMap<K, V>(
     String id, {
+    SharedMapEventCallback? onInitialize,
+    SharedMapKeyCallback<K, V>? onAbsent,
     SharedMapEntryCallback<K, V>? onPut,
     SharedMapEntryCallback<K, V>? onRemove,
   }) {
@@ -50,7 +52,12 @@ class SharedStoreGeneric implements SharedStore {
     }
 
     var o = createSharedMap<K, V>(sharedStore: this, id: id);
-    o.setCallbacksDynamic<K, V>(onPut: onPut, onRemove: onRemove);
+
+    o.setCallbacksDynamic<K, V>(
+        onInitialize: onInitialize,
+        onAbsent: onAbsent,
+        onPut: onPut,
+        onRemove: onRemove);
 
     return o;
   }
@@ -135,6 +142,12 @@ class SharedMapGeneric<K, V> implements SharedMapSync<K, V> {
   SharedMapGeneric(this.sharedStore, this.id);
 
   @override
+  SharedMapEventCallback? onInitialize;
+
+  @override
+  SharedMapKeyCallback<K, V>? onAbsent;
+
+  @override
   SharedMapEntryCallback<K, V>? onPut;
 
   @override
@@ -142,8 +155,15 @@ class SharedMapGeneric<K, V> implements SharedMapSync<K, V> {
 
   @override
   void setCallbacks(
-      {SharedMapEntryCallback<K, V>? onPut,
+      {SharedMapEventCallback? onInitialize,
+      SharedMapKeyCallback<K, V>? onAbsent,
+      SharedMapEntryCallback<K, V>? onPut,
       SharedMapEntryCallback<K, V>? onRemove}) {
+    if (onInitialize != null && this.onInitialize == null) {
+      this.onInitialize = onInitialize;
+      onInitialize(this);
+    }
+
     if (onPut != null) {
       this.onPut ??= onPut;
     }
@@ -155,8 +175,19 @@ class SharedMapGeneric<K, V> implements SharedMapSync<K, V> {
 
   @override
   void setCallbacksDynamic<K1, V1>(
-      {SharedMapEntryCallback<K1, V1>? onPut,
+      {SharedMapEventCallback? onInitialize,
+      SharedMapKeyCallback<K1, V1>? onAbsent,
+      SharedMapEntryCallback<K1, V1>? onPut,
       SharedMapEntryCallback<K1, V1>? onRemove}) {
+    if (onInitialize != null && this.onInitialize == null) {
+      this.onInitialize = onInitialize;
+      onInitialize(this);
+    }
+
+    if (onAbsent is SharedMapKeyCallback<K, V>) {
+      this.onAbsent ??= onAbsent as SharedMapKeyCallback<K, V>;
+    }
+
     if (onPut is SharedMapEntryCallback<K, V>) {
       this.onPut ??= onPut as SharedMapEntryCallback<K, V>;
     }
@@ -168,7 +199,19 @@ class SharedMapGeneric<K, V> implements SharedMapSync<K, V> {
 
   @override
   V? get(K key) {
-    return _entries[key];
+    var value = _entries[key];
+
+    if (value == null) {
+      var onAbsent = this.onAbsent;
+      if (onAbsent != null) {
+        value = onAbsent(key);
+        if (value != null) {
+          _entries[key] = value;
+        }
+      }
+    }
+
+    return value;
   }
 
   @override
@@ -188,6 +231,17 @@ class SharedMapGeneric<K, V> implements SharedMapSync<K, V> {
   @override
   V? putIfAbsent(K key, V? absentValue) {
     var prev = _entries[key];
+
+    if (prev == null) {
+      var onAbsent = this.onAbsent;
+      if (onAbsent != null) {
+        prev = onAbsent(key);
+        if (prev != null) {
+          _entries[key] = prev;
+        }
+      }
+    }
+
     if (prev == null) {
       if (absentValue == null) {
         return null;
@@ -206,6 +260,17 @@ class SharedMapGeneric<K, V> implements SharedMapSync<K, V> {
   @override
   V? update(K key, SharedMapUpdater<K, V> updater) {
     var prev = _entries[key];
+
+    if (prev == null) {
+      var onAbsent = this.onAbsent;
+      if (onAbsent != null) {
+        prev = onAbsent(key);
+        if (prev != null) {
+          _entries[key] = prev;
+        }
+      }
+    }
+
     var value = updater(key, prev);
     return put(key, value);
   }
@@ -213,15 +278,23 @@ class SharedMapGeneric<K, V> implements SharedMapSync<K, V> {
   @override
   V? remove(K key) {
     var v = _entries.remove(key);
+
+    if (v == null) {
+      var onAbsent = this.onAbsent;
+      if (onAbsent != null) {
+        v = onAbsent(key);
+      }
+    }
+
     if (v != null) {
       onRemove.callback(key, v);
     }
+
     return v;
   }
 
   @override
-  List<V?> removeAll(List<K> keys) =>
-      keys.map((k) => _entries.remove(k)).toList();
+  List<V?> removeAll(List<K> keys) => keys.map(remove).toList();
 
   @override
   List<K> keys() => _entries.keys.toList();
@@ -283,6 +356,20 @@ class SharedMapCacheGeneric<K, V> implements SharedMapCached<K, V> {
   SharedMapCacheGeneric(this._sharedMap) : timeout = Duration.zero;
 
   @override
+  SharedMapEventCallback? get onInitialize => _sharedMap.onInitialize;
+
+  @override
+  set onInitialize(SharedMapEventCallback? callback) =>
+      _sharedMap.onInitialize = callback;
+
+  @override
+  SharedMapKeyCallback<K, V>? get onAbsent => _sharedMap.onAbsent;
+
+  @override
+  set onAbsent(SharedMapKeyCallback<K, V>? callback) =>
+      _sharedMap.onAbsent = callback;
+
+  @override
   SharedMapEntryCallback<K, V>? get onPut => _sharedMap.onPut;
 
   @override
@@ -298,15 +385,27 @@ class SharedMapCacheGeneric<K, V> implements SharedMapCached<K, V> {
 
   @override
   void setCallbacks(
-          {SharedMapEntryCallback<K, V>? onPut,
+          {SharedMapEventCallback? onInitialize,
+          SharedMapKeyCallback<K, V>? onAbsent,
+          SharedMapEntryCallback<K, V>? onPut,
           SharedMapEntryCallback<K, V>? onRemove}) =>
-      _sharedMap.setCallbacks(onPut: onPut, onRemove: onRemove);
+      _sharedMap.setCallbacks(
+          onInitialize: onInitialize,
+          onAbsent: onAbsent,
+          onPut: onPut,
+          onRemove: onRemove);
 
   @override
   void setCallbacksDynamic<K1, V1>(
-          {SharedMapEntryCallback<K1, V1>? onPut,
+          {SharedMapEventCallback? onInitialize,
+          SharedMapKeyCallback<K1, V1>? onAbsent,
+          SharedMapEntryCallback<K1, V1>? onPut,
           SharedMapEntryCallback<K1, V1>? onRemove}) =>
-      _sharedMap.setCallbacksDynamic(onPut: onPut, onRemove: onRemove);
+      _sharedMap.setCallbacksDynamic(
+          onInitialize: onInitialize,
+          onAbsent: onAbsent,
+          onPut: onPut,
+          onRemove: onRemove);
 
   @override
   String get id => _sharedMap.id;
