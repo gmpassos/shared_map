@@ -441,6 +441,15 @@ void main() {
             ('rm', 'x', -1111),
             ('absent', 'y', -2222),
           ]));
+
+      var l8 = await Isolate.run<List?>(() async {
+        var store5 = SharedStore.fromSharedReference(sharedStoreReference);
+        var m5 = await store5.getSharedMap(sharedMapID);
+        var l8 = await m5?.cached().removeAll(['a', 'y']);
+        return l8;
+      });
+
+      expect(l8, equals([null, -2222]));
     });
 
     test('basic 2', () async {

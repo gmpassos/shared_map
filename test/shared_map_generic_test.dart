@@ -404,6 +404,8 @@ void _doTest<K, V, T extends SharedMap<K, V>>(
             ('rm', 'x', -1111),
             ('absent', 'y', -2222)
           ]));
+
+      expect(await m2.cached().removeAll(['a', 'y']), equals([null, -2222]));
     });
 
     test('newUUID', () async {

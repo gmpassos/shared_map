@@ -455,35 +455,36 @@ class _SharedMapIsolateMain<K, V>
     switch (op) {
       case SharedMapOperation.get:
         {
-          var key = args[1];
+          var key = args[1] as K;
           response = get(key);
         }
       case SharedMapOperation.put:
         {
-          var key = args[1];
-          var putValue = args[2];
+          var key = args[1] as K;
+          var putValue = args[2] as V?;
           response = put(key, putValue);
         }
       case SharedMapOperation.putIfAbsent:
         {
-          var key = args[1];
-          var putValue = args[2];
+          var key = args[1] as K;
+          var putValue = args[2] as V?;
           response = putIfAbsent(key, putValue);
         }
       case SharedMapOperation.update:
         {
-          var key = args[1];
+          var key = args[1] as K;
           var updater = args[2];
           response = update(key, updater);
         }
       case SharedMapOperation.remove:
         {
-          var key = args[1];
+          var key = args[1] as K;
           response = remove(key);
         }
       case SharedMapOperation.removeAll:
         {
-          var keys = args[1] as List<K>;
+          var list = args[1] as List;
+          var keys = list is List<K> ? list : list.cast<K>();
           response = removeAll(keys);
         }
       case SharedMapOperation.keys:
