@@ -302,6 +302,16 @@ void main() {
       var m2 = await store2.getSharedMap<String, int>(
         'm2',
         onInitialize: (o) => events.add(('init', o.id, -1)),
+        onAbsent: (k) {
+          int? v;
+          if (k == 'x') {
+            v = -1111;
+          } else if (k == 'y') {
+            v = -2222;
+          }
+          events.add(('absent', k, v ?? 0));
+          return v;
+        },
         onPut: (k, v) => events.add(('put', k, v)),
         onRemove: (k, v) => events.add(('rm', k, v)),
       );
@@ -314,10 +324,13 @@ void main() {
       var va1 = await m2.get('a');
       expect(va1, isNull);
 
+      expect(events, equals([('init', m2ID, -1), ('absent', 'a', 0)]));
+
       var va2 = await m2.put('a', 11);
       expect(va2, equals(11));
 
-      expect(events, equals([('init', m2ID, -1), ('put', 'a', 11)]));
+      expect(events,
+          equals([('init', m2ID, -1), ('absent', 'a', 0), ('put', 'a', 11)]));
 
       final sharedStoreReference = store2.sharedReference();
       final sharedMapID = m2.id;
@@ -331,7 +344,8 @@ void main() {
 
       expect(va3, equals(11));
 
-      expect(events, equals([('init', m2ID, -1), ('put', 'a', 11)]));
+      expect(events,
+          equals([('init', m2ID, -1), ('absent', 'a', 0), ('put', 'a', 11)]));
 
       var va4 = await Isolate.run<int?>(() async {
         var store4 = SharedStore.fromSharedReference(sharedStoreReference);
@@ -342,8 +356,14 @@ void main() {
 
       expect(va4, equals(111));
 
-      expect(events,
-          equals([('init', m2ID, -1), ('put', 'a', 11), ('put', 'a', 111)]));
+      expect(
+          events,
+          equals([
+            ('init', m2ID, -1),
+            ('absent', 'a', 0),
+            ('put', 'a', 11),
+            ('put', 'a', 111)
+          ]));
 
       var va5 = await Isolate.run<int?>(() async {
         var store5 = SharedStore.fromSharedReference(sharedStoreReference);
@@ -358,9 +378,68 @@ void main() {
           events,
           equals([
             ('init', m2ID, -1),
+            ('absent', 'a', 0),
             ('put', 'a', 11),
             ('put', 'a', 111),
             ('rm', 'a', 111)
+          ]));
+
+      var va6 = await Isolate.run<int?>(() async {
+        var store5 = SharedStore.fromSharedReference(sharedStoreReference);
+        var m5 = await store5.getSharedMap(sharedMapID);
+        var va6 = await m5?.cached().remove('x');
+        return va6;
+      });
+
+      expect(va6, equals(-1111));
+
+      expect(
+          events,
+          equals([
+            ('init', m2ID, -1),
+            ('absent', 'a', 0),
+            ('put', 'a', 11),
+            ('put', 'a', 111),
+            ('rm', 'a', 111),
+            ('absent', 'x', -1111),
+            ('rm', 'x', -1111),
+          ]));
+
+      var va7 = await Isolate.run<int?>(() async {
+        var store5 = SharedStore.fromSharedReference(sharedStoreReference);
+        var m5 = await store5.getSharedMap(sharedMapID);
+        var va7 = await m5?.cached().get('y');
+        return va7;
+      });
+
+      expect(va7, equals(-2222));
+
+      expect(
+          events,
+          equals([
+            ('init', m2ID, -1),
+            ('absent', 'a', 0),
+            ('put', 'a', 11),
+            ('put', 'a', 111),
+            ('rm', 'a', 111),
+            ('absent', 'x', -1111),
+            ('rm', 'x', -1111),
+            ('absent', 'y', -2222),
+          ]));
+
+      expect(await m2.get('y'), equals(-2222));
+
+      expect(
+          events,
+          equals([
+            ('init', m2ID, -1),
+            ('absent', 'a', 0),
+            ('put', 'a', 11),
+            ('put', 'a', 111),
+            ('rm', 'a', 111),
+            ('absent', 'x', -1111),
+            ('rm', 'x', -1111),
+            ('absent', 'y', -2222),
           ]));
     });
 

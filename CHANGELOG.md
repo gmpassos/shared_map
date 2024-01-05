@@ -1,6 +1,7 @@
 ## 1.1.8
 
-- Update SharedMap instances to include `onInitialize` callback:
+- `SharedMap`:
+  - Add `onInitialize` and `onAbsent` callback:
 
 - New `SharedMapExtension`:
   - Added `isAuxiliaryInstance`, `isMainInstance`, `isSharedObject`, `asSharedObject`.

@@ -34,21 +34,29 @@ extension FutureSharedMapExtension<K, V> on Future<SharedMap<K, V>> {
 
   Future<SharedMap<K, V>> setCallbacks(
           {SharedMapEventCallback? onInitialize,
+          SharedMapKeyCallback<K, V>? onAbsent,
           SharedMapEntryCallback<K, V>? onPut,
           SharedMapEntryCallback<K, V>? onRemove}) =>
       then((o) {
         o.setCallbacks(
-            onInitialize: onInitialize, onPut: onPut, onRemove: onRemove);
+            onInitialize: onInitialize,
+            onAbsent: onAbsent,
+            onPut: onPut,
+            onRemove: onRemove);
         return o;
       });
 
   Future<SharedMap<K, V>> setCallbacksDynamic<K1, V1>(
           {SharedMapEventCallback? onInitialize,
+          SharedMapKeyCallback<K1, V1>? onAbsent,
           SharedMapEntryCallback<K1, V1>? onPut,
           SharedMapEntryCallback<K1, V1>? onRemove}) =>
       then((o) {
         o.setCallbacksDynamic(
-            onInitialize: onInitialize, onPut: onPut, onRemove: onRemove);
+            onInitialize: onInitialize,
+            onAbsent: onAbsent,
+            onPut: onPut,
+            onRemove: onRemove);
         return o;
       });
 }
@@ -165,36 +173,50 @@ extension FutureOrSharedMapExtension<K, V> on FutureOr<SharedMap<K, V>> {
 
   FutureOr<SharedMap<K, V>> setCallbacks(
       {SharedMapEventCallback? onInitialize,
+      SharedMapKeyCallback<K, V>? onAbsent,
       SharedMapEntryCallback<K, V>? onPut,
       SharedMapEntryCallback<K, V>? onRemove}) {
     var self = this;
     if (self is Future<SharedMap<K, V>>) {
       return self.then((o) {
         o.setCallbacks(
-            onInitialize: onInitialize, onPut: onPut, onRemove: onRemove);
+            onInitialize: onInitialize,
+            onAbsent: onAbsent,
+            onPut: onPut,
+            onRemove: onRemove);
         return o;
       });
     } else {
       self.setCallbacks(
-          onInitialize: onInitialize, onPut: onPut, onRemove: onRemove);
+          onInitialize: onInitialize,
+          onAbsent: onAbsent,
+          onPut: onPut,
+          onRemove: onRemove);
       return self;
     }
   }
 
   FutureOr<SharedMap<K, V>> setCallbacksDynamic<K1, V1>(
       {SharedMapEventCallback? onInitialize,
+      SharedMapKeyCallback<K1, V1>? onAbsent,
       SharedMapEntryCallback<K1, V1>? onPut,
       SharedMapEntryCallback<K1, V1>? onRemove}) {
     var self = this;
     if (self is Future<SharedMap<K, V>>) {
       return self.then((o) {
         o.setCallbacksDynamic(
-            onInitialize: onInitialize, onPut: onPut, onRemove: onRemove);
+            onInitialize: onInitialize,
+            onAbsent: onAbsent,
+            onPut: onPut,
+            onRemove: onRemove);
         return o;
       });
     } else {
       self.setCallbacksDynamic(
-          onInitialize: onInitialize, onPut: onPut, onRemove: onRemove);
+          onInitialize: onInitialize,
+          onAbsent: onAbsent,
+          onPut: onPut,
+          onRemove: onRemove);
       return self;
     }
   }

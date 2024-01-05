@@ -291,6 +291,16 @@ void _doTest<K, V, T extends SharedMap<K, V>>(
       var m2 = await store2.getSharedMap<String, int>(
         'm2',
         onInitialize: (o) => events.add(('init', o.id, -1)),
+        onAbsent: (k) {
+          int? v;
+          if (k == 'x') {
+            v = -1111;
+          } else if (k == 'y') {
+            v = -2222;
+          }
+          events.add(('absent', k, v ?? 0));
+          return v;
+        },
         onPut: (k, v) => events.add(('put', k, v)),
         onRemove: (k, v) => events.add(('rm', k, v)),
       );
@@ -313,23 +323,31 @@ void _doTest<K, V, T extends SharedMap<K, V>>(
       var va1 = await m2.get('a');
       expect(va1, isNull);
 
-      expect(events, equals([('init', m2ID, -1)]));
+      expect(events, equals([('init', m2ID, -1), ('absent', 'a', 0)]));
 
       var va2 = m2.put('a', 11);
       expect(va2, equals(11));
 
-      expect(events, equals([('init', m2ID, -1), ('put', 'a', 11)]));
+      expect(events,
+          equals([('init', m2ID, -1), ('absent', 'a', 0), ('put', 'a', 11)]));
 
       var va3 = m2.putIfAbsent('a', 111);
       expect(va3, equals(11));
 
-      expect(events, equals([('init', m2ID, -1), ('put', 'a', 11)]));
+      expect(events,
+          equals([('init', m2ID, -1), ('absent', 'a', 0), ('put', 'a', 11)]));
 
       var va4 = m2.put('a', 111);
       expect(va4, equals(111));
 
-      expect(events,
-          equals([('init', m2ID, -1), ('put', 'a', 11), ('put', 'a', 111)]));
+      expect(
+          events,
+          equals([
+            ('init', m2ID, -1),
+            ('absent', 'a', 0),
+            ('put', 'a', 11),
+            ('put', 'a', 111)
+          ]));
 
       expect(m2.remove("a"), equals(111));
 
@@ -337,9 +355,54 @@ void _doTest<K, V, T extends SharedMap<K, V>>(
           events,
           equals([
             ('init', m2ID, -1),
+            ('absent', 'a', 0),
             ('put', 'a', 11),
             ('put', 'a', 111),
             ('rm', 'a', 111)
+          ]));
+
+      expect(m2.remove("x"), equals(-1111));
+
+      expect(
+          events,
+          equals([
+            ('init', m2ID, -1),
+            ('absent', 'a', 0),
+            ('put', 'a', 11),
+            ('put', 'a', 111),
+            ('rm', 'a', 111),
+            ('absent', 'x', -1111),
+            ('rm', 'x', -1111)
+          ]));
+
+      expect(m2.get("y"), equals(-2222));
+
+      expect(
+          events,
+          equals([
+            ('init', m2ID, -1),
+            ('absent', 'a', 0),
+            ('put', 'a', 11),
+            ('put', 'a', 111),
+            ('rm', 'a', 111),
+            ('absent', 'x', -1111),
+            ('rm', 'x', -1111),
+            ('absent', 'y', -2222)
+          ]));
+
+      expect(m2.get("y"), equals(-2222));
+
+      expect(
+          events,
+          equals([
+            ('init', m2ID, -1),
+            ('absent', 'a', 0),
+            ('put', 'a', 11),
+            ('put', 'a', 111),
+            ('rm', 'a', 111),
+            ('absent', 'x', -1111),
+            ('rm', 'x', -1111),
+            ('absent', 'y', -2222)
           ]));
     });
 
