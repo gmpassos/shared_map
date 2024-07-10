@@ -1,3 +1,11 @@
+## 1.1.9
+
+- `SharedMapEventCallback`, `SharedMapEntryCallback`: return `FutureOr<void>`.
+
+- test: ^1.25.8
+- dependency_validator: ^3.2.3
+- coverage: ^1.8.0 
+
 ## 1.1.8
 
 - `SharedMap`:

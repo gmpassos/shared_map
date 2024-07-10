@@ -37,28 +37,22 @@ extension FutureSharedMapExtension<K, V> on Future<SharedMap<K, V>> {
           SharedMapKeyCallback<K, V>? onAbsent,
           SharedMapEntryCallback<K, V>? onPut,
           SharedMapEntryCallback<K, V>? onRemove}) =>
-      then((o) {
-        o.setCallbacks(
-            onInitialize: onInitialize,
-            onAbsent: onAbsent,
-            onPut: onPut,
-            onRemove: onRemove);
-        return o;
-      });
+      then((o) => o.setCallbacks(
+          onInitialize: onInitialize,
+          onAbsent: onAbsent,
+          onPut: onPut,
+          onRemove: onRemove));
 
-  Future<SharedMap<K, V>> setCallbacksDynamic<K1, V1>(
+  Future<SharedMap<K1, V1>> setCallbacksDynamic<K1, V1>(
           {SharedMapEventCallback? onInitialize,
           SharedMapKeyCallback<K1, V1>? onAbsent,
           SharedMapEntryCallback<K1, V1>? onPut,
           SharedMapEntryCallback<K1, V1>? onRemove}) =>
-      then((o) {
-        o.setCallbacksDynamic(
-            onInitialize: onInitialize,
-            onAbsent: onAbsent,
-            onPut: onPut,
-            onRemove: onRemove);
-        return o;
-      });
+      then((o) => o.setCallbacksDynamic<K1, V1>(
+          onInitialize: onInitialize,
+          onAbsent: onAbsent,
+          onPut: onPut,
+          onRemove: onRemove));
 }
 
 /// Extension on [FutureOr]<[SharedMap]`<K, V>`>
@@ -178,21 +172,17 @@ extension FutureOrSharedMapExtension<K, V> on FutureOr<SharedMap<K, V>> {
       SharedMapEntryCallback<K, V>? onRemove}) {
     var self = this;
     if (self is Future<SharedMap<K, V>>) {
-      return self.then((o) {
-        o.setCallbacks(
-            onInitialize: onInitialize,
-            onAbsent: onAbsent,
-            onPut: onPut,
-            onRemove: onRemove);
-        return o;
-      });
+      return self.then((o) => o.setCallbacks(
+          onInitialize: onInitialize,
+          onAbsent: onAbsent,
+          onPut: onPut,
+          onRemove: onRemove));
     } else {
-      self.setCallbacks(
+      return self.setCallbacks(
           onInitialize: onInitialize,
           onAbsent: onAbsent,
           onPut: onPut,
           onRemove: onRemove);
-      return self;
     }
   }
 
