@@ -94,18 +94,25 @@ enum SharedMapOperation {
   where,
 }
 
-typedef SharedMapEventCallback = void Function(SharedMap sharedMap);
+typedef SharedMapEventCallback = FutureOr<void> Function(SharedMap sharedMap);
 
 typedef SharedMapKeyCallback<K, V> = V? Function(K key);
 
-typedef SharedMapEntryCallback<K, V> = void Function(K key, V? value);
+typedef SharedMapEntryCallback<K, V> = FutureOr<void> Function(K key, V? value);
 
 extension SharedMapEntryCallbackExtension<K, V>
     on SharedMapEntryCallback<K, V>? {
-  void callback<R>(K k, V v) {
+  FutureOr<V> callback<R>(K k, V v) {
     var f = this;
-    if (f == null) return;
-    f(k, v);
+    if (f == null) return v;
+
+    var r = f(k, v);
+
+    if (r is Future) {
+      return r.then((_) => v);
+    }
+
+    return v;
   }
 
   void callbackAll<R>(List<MapEntry<K, V>> entries) {
@@ -163,12 +170,11 @@ abstract class SharedMap<K, V> extends ReferenceableType {
       SharedMapEntryCallback<K, V>? onPut,
       SharedMapEntryCallback<K, V>? onRemove}) {
     if (reference != null) {
-      return SharedMap.fromSharedReference(reference)
-        ..setCallbacks(
-            onInitialize: onInitialize,
-            onAbsent: onAbsent,
-            onPut: onPut,
-            onRemove: onRemove);
+      return SharedMap<K, V>.fromSharedReference(reference).setCallbacks(
+          onInitialize: onInitialize,
+          onAbsent: onAbsent,
+          onPut: onPut,
+          onRemove: onRemove);
     }
 
     if (id != null) {
@@ -217,13 +223,13 @@ abstract class SharedMap<K, V> extends ReferenceableType {
 
   set onRemove(SharedMapEntryCallback<K, V>? callback);
 
-  void setCallbacks(
+  FutureOr<SharedMap<K, V>> setCallbacks(
       {SharedMapEventCallback? onInitialize,
       SharedMapKeyCallback<K, V>? onAbsent,
       SharedMapEntryCallback<K, V>? onPut,
       SharedMapEntryCallback<K, V>? onRemove});
 
-  void setCallbacksDynamic<K1, V1>(
+  FutureOr<SharedMap<K1, V1>> setCallbacksDynamic<K1, V1>(
       {SharedMapEventCallback? onInitialize,
       SharedMapKeyCallback<K1, V1>? onAbsent,
       SharedMapEntryCallback<K1, V1>? onPut,
@@ -305,21 +311,6 @@ extension SharedMapExtension<K, V> on SharedMap<K, V>? {
 abstract class SharedMapSync<K, V> implements SharedMap<K, V> {
   @override
   V? get(K key);
-
-  @override
-  V? put(K key, V? value);
-
-  @override
-  V? putIfAbsent(K key, V? absentValue);
-
-  @override
-  V? update(K key, SharedMapUpdater<K, V> updater);
-
-  @override
-  V? remove(K key);
-
-  @override
-  List<V?> removeAll(List<K> keys);
 
   @override
   List<K> keys();

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'shared_map_base.dart';
 import 'shared_map_cached.dart';
 import 'shared_object.dart';
@@ -87,14 +89,15 @@ class NotSharedMap<K, V> implements SharedMapSync<K, V> {
   SharedMapEntryCallback<K, V>? onRemove;
 
   @override
-  void setCallbacks(
+  FutureOr<SharedMap<K, V>> setCallbacks(
       {SharedMapEventCallback? onInitialize,
       SharedMapKeyCallback<K, V>? onAbsent,
       SharedMapEntryCallback<K, V>? onPut,
       SharedMapEntryCallback<K, V>? onRemove}) {
+    SharedMapEventCallback? callOnInitialize;
     if (onInitialize != null && this.onInitialize == null) {
       this.onInitialize = onInitialize;
-      onInitialize(this);
+      callOnInitialize = onInitialize;
     }
 
     if (onAbsent != null) {
@@ -108,17 +111,27 @@ class NotSharedMap<K, V> implements SharedMapSync<K, V> {
     if (onRemove != null) {
       this.onRemove ??= onRemove;
     }
+
+    if (callOnInitialize != null) {
+      var r = callOnInitialize(this);
+      if (r is Future) {
+        return r.then((_) => this);
+      }
+    }
+
+    return this;
   }
 
   @override
-  void setCallbacksDynamic<K1, V1>(
+  FutureOr<SharedMap<K1, V1>> setCallbacksDynamic<K1, V1>(
       {SharedMapEventCallback? onInitialize,
       SharedMapKeyCallback<K1, V1>? onAbsent,
       SharedMapEntryCallback<K1, V1>? onPut,
       SharedMapEntryCallback<K1, V1>? onRemove}) {
+    SharedMapEventCallback? callOnInitialize;
     if (onInitialize != null && this.onInitialize == null) {
       this.onInitialize = onInitialize;
-      onInitialize(this);
+      callOnInitialize = onInitialize;
     }
 
     if (onAbsent is SharedMapKeyCallback<K, V>) {
@@ -132,6 +145,15 @@ class NotSharedMap<K, V> implements SharedMapSync<K, V> {
     if (onRemove is SharedMapEntryCallback<K, V>) {
       this.onRemove ??= onRemove as SharedMapEntryCallback<K, V>;
     }
+
+    if (callOnInitialize != null) {
+      var r = callOnInitialize(this);
+      if (r is Future) {
+        return r.then((_) => this as SharedMap<K1, V1>);
+      }
+    }
+
+    return this as SharedMap<K1, V1>;
   }
 
   late final _NotSharedMapCache<K, V> _cached = _NotSharedMapCache(this);
@@ -173,7 +195,7 @@ class NotSharedMap<K, V> implements SharedMapSync<K, V> {
   int length() => _entries.length;
 
   @override
-  V? put(K key, V? value) {
+  FutureOr<V?> put(K key, V? value) {
     if (value == null) {
       _entries.remove(key);
       return null;
@@ -181,13 +203,11 @@ class NotSharedMap<K, V> implements SharedMapSync<K, V> {
 
     _entries[key] = value;
 
-    onPut.callback(key, value);
-
-    return value;
+    return onPut.callback(key, value);
   }
 
   @override
-  V? putIfAbsent(K key, V? absentValue) {
+  FutureOr<V?> putIfAbsent(K key, V? absentValue) {
     var prev = _entries[key];
 
     if (prev == null) {
@@ -207,16 +227,14 @@ class NotSharedMap<K, V> implements SharedMapSync<K, V> {
 
       _entries[key] = absentValue;
 
-      onPut.callback(key, absentValue);
-
-      return absentValue;
+      return onPut.callback(key, absentValue);
     } else {
       return prev;
     }
   }
 
   @override
-  V? update(K key, SharedMapUpdater<K, V> updater) {
+  FutureOr<V?> update(K key, SharedMapUpdater<K, V> updater) {
     var prev = _entries[key];
 
     if (prev == null) {
@@ -234,7 +252,7 @@ class NotSharedMap<K, V> implements SharedMapSync<K, V> {
   }
 
   @override
-  V? remove(K key) {
+  FutureOr<V?> remove(K key) {
     var v = _entries.remove(key);
 
     if (v == null) {
@@ -245,13 +263,24 @@ class NotSharedMap<K, V> implements SharedMapSync<K, V> {
     }
 
     if (v != null) {
-      onRemove.callback(key, v);
+      return onRemove.callback(key, v);
     }
+
     return v;
   }
 
   @override
-  List<V?> removeAll(List<K> keys) => keys.map(remove).toList();
+  FutureOr<List<V?>> removeAll(List<K> keys) {
+    var list = keys.map(remove).toList();
+
+    if (list.every((e) => e is! Future)) {
+      return list.cast<V?>();
+    }
+
+    var futures = list.map((e) => e is Future<V?> ? e : Future<V?>.value(e));
+
+    return Future.wait(futures);
+  }
 
   @override
   int clear() {
@@ -334,7 +363,7 @@ class _NotSharedMapCache<K, V> implements SharedMapCached<K, V> {
       _sharedMap.onRemove = callback;
 
   @override
-  void setCallbacks(
+  FutureOr<SharedMap<K, V>> setCallbacks(
           {SharedMapEventCallback? onInitialize,
           SharedMapKeyCallback<K, V>? onAbsent,
           SharedMapEntryCallback<K, V>? onPut,
@@ -346,7 +375,7 @@ class _NotSharedMapCache<K, V> implements SharedMapCached<K, V> {
           onRemove: onRemove);
 
   @override
-  void setCallbacksDynamic<K1, V1>(
+  FutureOr<SharedMap<K1, V1>> setCallbacksDynamic<K1, V1>(
           {SharedMapEventCallback? onInitialize,
           SharedMapKeyCallback<K1, V1>? onAbsent,
           SharedMapEntryCallback<K1, V1>? onPut,
@@ -374,21 +403,24 @@ class _NotSharedMapCache<K, V> implements SharedMapCached<K, V> {
       _sharedMap.get(key);
 
   @override
-  V? put(K key, V? value) => _sharedMap.put(key, value);
+  FutureOr<V?> put(K key, V? value) => _sharedMap.put(key, value);
 
   @override
-  V? putIfAbsent(K key, V? absentValue) =>
+  FutureOr<V?> putIfAbsent(K key, V? absentValue) =>
       _sharedMap.putIfAbsent(key, absentValue);
 
   @override
-  V? update(K key, SharedMapUpdater<K, V> updater) =>
+  FutureOr<V?> update(K key, SharedMapUpdater<K, V> updater) =>
       _sharedMap.update(key, updater);
 
   @override
-  V? remove(K key) => _sharedMap.remove(key);
+  V? removeFromCache(K key) => null;
 
   @override
-  List<V?> removeAll(List<K> keys) => _sharedMap.removeAll(keys);
+  FutureOr<V?> remove(K key) => _sharedMap.remove(key);
+
+  @override
+  FutureOr<List<V?>> removeAll(List<K> keys) => _sharedMap.removeAll(keys);
 
   @override
   SharedMapReference sharedReference() => _sharedMap.sharedReference();

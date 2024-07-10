@@ -46,7 +46,7 @@ class SharedMapCached<K, V> implements SharedMap<K, V> {
       _sharedMap.onRemove = callback;
 
   @override
-  void setCallbacks(
+  FutureOr<SharedMap<K, V>> setCallbacks(
           {SharedMapEventCallback? onInitialize,
           SharedMapKeyCallback<K, V>? onAbsent,
           SharedMapEntryCallback<K, V>? onPut,
@@ -58,7 +58,7 @@ class SharedMapCached<K, V> implements SharedMap<K, V> {
           onRemove: onRemove);
 
   @override
-  void setCallbacksDynamic<K1, V1>(
+  FutureOr<SharedMap<K1, V1>> setCallbacksDynamic<K1, V1>(
           {SharedMapEventCallback? onInitialize,
           SharedMapKeyCallback<K1, V1>? onAbsent,
           SharedMapEntryCallback<K1, V1>? onPut,
@@ -158,6 +158,10 @@ class SharedMapCached<K, V> implements SharedMap<K, V> {
   FutureOr<V?> remove(K key) {
     _cache.remove(key);
     return _sharedMap.remove(key);
+  }
+
+  V? removeFromCache(K key) {
+    return _cache.remove(key)?.$2;
   }
 
   @override
